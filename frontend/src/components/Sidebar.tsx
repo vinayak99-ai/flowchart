@@ -1,0 +1,168 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { extractFile, openGenerateSocket } from '../lib/api'
+import type { GenerateResponse, ValidationIssue, WsProgressMessage } from '../types'
+import { IssuesPanel } from './IssuesPanel'
+
+type Status = 'idle' | 'calling_llm' | 'validating' | 'done' | 'error'
+
+interface SidebarProps {
+  onResult: (result: GenerateResponse) => void
+  issues: ValidationIssue[]
+}
+
+const STATUS_LABEL: Record<Status, string> = {
+  idle: '',
+  calling_llm: 'Calling OpenAI…',
+  validating: 'Validating structure…',
+  done: 'Flowchart ready.',
+  error: 'Something went wrong.',
+}
+
+export function Sidebar({ onResult, issues }: SidebarProps) {
+  const [tab, setTab] = useState<'paste' | 'upload'>('paste')
+  const [material, setMaterial] = useState('')
+  const [prompt, setPrompt] = useState('')
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [extracting, setExtracting] = useState(false)
+  const [status, setStatus] = useState<Status>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const closeSocketRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => closeSocketRef.current?.()
+  }, [])
+
+  const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setExtracting(true)
+    setErrorMessage(null)
+    try {
+      const result = await extractFile(file)
+      setMaterial(result.text)
+      setFileName(result.filename)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to read file.')
+    } finally {
+      setExtracting(false)
+    }
+  }, [])
+
+  const handleGenerate = useCallback(() => {
+    if (!material.trim() || !prompt.trim()) {
+      setErrorMessage('Add source material and a prompt before generating.')
+      return
+    }
+
+    setErrorMessage(null)
+    setStatus('calling_llm')
+    closeSocketRef.current?.()
+
+    const onMessage = (message: WsProgressMessage) => {
+      if (message.stage === 'calling_llm' || message.stage === 'validating') {
+        setStatus(message.stage)
+      } else if (message.stage === 'done') {
+        setStatus('done')
+        onResult(message.result)
+      } else if (message.stage === 'error') {
+        setStatus('error')
+        setErrorMessage(message.message)
+      }
+    }
+
+    const onError = () => {
+      setStatus('error')
+      setErrorMessage('Connection to backend failed. Is the API running?')
+    }
+
+    closeSocketRef.current = openGenerateSocket(material, prompt, onMessage, onError)
+  }, [material, prompt, onResult])
+
+  const isGenerating = status === 'calling_llm' || status === 'validating'
+
+  return (
+    <aside className="flex h-full w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-fidelity-gray-200 bg-white p-4">
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-fidelity-gray-600">
+          Source material
+        </h2>
+        <div className="mt-2 flex gap-1 rounded-lg bg-fidelity-gray-100 p-1 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setTab('paste')}
+            className={`flex-1 rounded-md py-1.5 transition-colors ${
+              tab === 'paste' ? 'bg-white text-fidelity-green shadow-sm' : 'text-fidelity-gray-600'
+            }`}
+          >
+            Paste text
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('upload')}
+            className={`flex-1 rounded-md py-1.5 transition-colors ${
+              tab === 'upload' ? 'bg-white text-fidelity-green shadow-sm' : 'text-fidelity-gray-600'
+            }`}
+          >
+            Upload file
+          </button>
+        </div>
+
+        {tab === 'upload' ? (
+          <div className="mt-3">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-fidelity-gray-300 bg-fidelity-gray-50 px-3 py-4 text-center text-xs text-fidelity-gray-600 hover:border-fidelity-green hover:text-fidelity-green">
+              <span className="font-medium">
+                {extracting ? 'Reading file…' : fileName ?? 'Click to choose a file'}
+              </span>
+              <span className="mt-1 text-[10px] text-fidelity-gray-600">.txt, .md, .pdf, .docx</span>
+              <input
+                type="file"
+                accept=".txt,.md,.pdf,.docx"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </label>
+          </div>
+        ) : null}
+
+        <textarea
+          value={material}
+          onChange={(event) => setMaterial(event.target.value)}
+          placeholder="Paste source material (a process doc, transcript, requirements, etc.)"
+          className="mt-3 h-40 w-full resize-none rounded-lg border border-fidelity-gray-200 bg-fidelity-gray-50 p-2 text-xs text-fidelity-gray-900 outline-none focus:border-fidelity-green"
+        />
+      </div>
+
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-fidelity-gray-600">
+          Prompt
+        </h2>
+        <textarea
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          placeholder="e.g. Map this into a customer onboarding flowchart with decision points."
+          className="mt-2 h-20 w-full resize-none rounded-lg border border-fidelity-gray-200 bg-fidelity-gray-50 p-2 text-xs text-fidelity-gray-900 outline-none focus:border-fidelity-green"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleGenerate}
+        disabled={isGenerating}
+        className="rounded-md bg-fidelity-green py-2.5 text-sm font-semibold text-white transition-colors hover:bg-fidelity-green-dark disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isGenerating ? 'Generating…' : 'Generate flowchart'}
+      </button>
+
+      {status !== 'idle' ? (
+        <p
+          className={`text-xs ${status === 'error' ? 'text-red-600' : 'text-fidelity-gray-600'}`}
+        >
+          {STATUS_LABEL[status]}
+        </p>
+      ) : null}
+      {errorMessage ? <p className="text-xs text-red-600">{errorMessage}</p> : null}
+
+      <IssuesPanel issues={issues} />
+    </aside>
+  )
+}
