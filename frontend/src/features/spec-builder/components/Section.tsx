@@ -22,12 +22,12 @@ export function Section({ id, title, icon: Icon, count, defaultOpen = true, acti
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-[140px] flex-1 items-center gap-2 text-left"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
           <Icon className="size-4 shrink-0 text-muted-foreground" />
-          <h2 className="truncate text-sm font-semibold">{title}</h2>
+          <h2 className="text-sm font-semibold">{title}</h2>
           {count !== undefined && (
             <Badge variant="secondary" className="shrink-0">
               {count}

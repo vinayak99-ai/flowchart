@@ -6,18 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertDialog } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EditableList } from "@/features/spec-builder/components/EditableList"
 import { IdentifiedList } from "@/features/spec-builder/components/IdentifiedList"
 import { KeyEntityList } from "@/features/spec-builder/components/KeyEntityList"
 import { UserStoryCard } from "@/features/spec-builder/components/UserStoryCard"
 import { Section } from "@/features/spec-builder/components/Section"
+import { ExportMenu } from "@/features/spec-builder/components/ExportMenu"
 import { EditableBlock } from "@/features/spec-builder/components/EditableBlock"
 import { ViewModeProvider, type ViewMode } from "@/features/spec-builder/hooks/view-mode"
 import { OutlineNav, type OutlineSection } from "@/features/spec-builder/components/OutlineNav"
 import { DiagramsSection } from "@/features/spec-builder/components/DiagramsSection"
 import { ArchitectureDecisionsSection } from "@/features/spec-builder/components/ArchitectureDecisionsSection"
-import { EpicsSection } from "@/features/spec-builder/components/EpicsSection"
+import { EpicsSection, DeliveryStatusBar } from "@/features/spec-builder/components/EpicsSection"
 import { StakeholdersSection } from "@/features/spec-builder/components/StakeholdersSection"
 import { GlossarySection } from "@/features/spec-builder/components/GlossarySection"
 import { BriefsSection } from "@/features/spec-builder/components/BriefsSection"
@@ -320,18 +322,7 @@ export function ProjectDetail({
                     ? `Saved ${lastSavedAt.toLocaleTimeString()}`
                     : ""}
             </span>
-            <Button variant="outline" size="sm" asChild>
-              <a href={api.exportUrl(projectId, artifactId, "md")}>Export .md</a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={api.exportUrl(projectId, artifactId, "docx")}>Export .docx</a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={api.exportUrl(projectId, artifactId, "csv")}>Export .csv</a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={api.exportUrl(projectId, artifactId, "epics-csv")}>Export epics.csv</a>
-            </Button>
+            <ExportMenu projectId={projectId} artifactId={artifactId} />
             <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save"}
             </Button>
@@ -416,6 +407,33 @@ export function ProjectDetail({
                   onChange={(e) => update("title", e.target.value)}
                 />
               </EditableBlock>
+
+              {prd.epics.length > 0 && (
+                <div className="flex flex-col gap-2 border-t pt-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline">
+                      <FileText className="size-3" />
+                      {prd.epics.some((e) => e.jira_key || e.stories.some((s) => s.jira_key))
+                        ? "in Jira"
+                        : "not yet in Jira"}
+                    </Badge>
+                    <Badge variant="outline">
+                      <Layers className="size-3" />
+                      {prd.epics.length} epic{prd.epics.length === 1 ? "" : "s"}
+                      {prd.epics.filter((e) => e.business_impact === "high").length > 0 &&
+                        ` · ${prd.epics.filter((e) => e.business_impact === "high").length} high impact`}
+                    </Badge>
+                    {prd.architecture_decisions.filter((d) => d.status === "proposed").length > 0 && (
+                      <Badge variant="secondary">
+                        <Blocks className="size-3" />
+                        {prd.architecture_decisions.filter((d) => d.status === "proposed").length} proposed ADR
+                        {prd.architecture_decisions.filter((d) => d.status === "proposed").length === 1 ? "" : "s"}
+                      </Badge>
+                    )}
+                  </div>
+                  <DeliveryStatusBar epics={prd.epics} />
+                </div>
+              )}
             </div>
 
             <Section

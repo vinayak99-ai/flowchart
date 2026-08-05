@@ -80,7 +80,7 @@ const BUCKET_META: Record<DeliveryBucket, { label: string; className: string }> 
   unlinked: { label: "not in Jira", className: "bg-muted" },
 }
 
-function DeliveryStatusBar({ epics }: { epics: Epic[] }) {
+export function DeliveryStatusBar({ epics }: { epics: Epic[] }) {
   const counts: Record<DeliveryBucket, number> = { done: 0, in_progress: 0, todo: 0, unlinked: 0 }
   for (const epic of epics) {
     counts[deliveryBucket(epic.jira_key, epic.jira_status)]++
