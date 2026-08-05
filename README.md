@@ -75,7 +75,19 @@ Then open http://localhost:5173 — this is the whole app now, Flowchart Builder
 Spec Builder both, one process. The backend must be running (with both env files set up
 above) for either tool to actually generate anything.
 
-## How it works
+## Navigating Studio
+
+The left rail is the only navigation — no separate menus per tool. Each icon is a tool
+from the `TOOLS` registry (`frontend/src/lib/tools.ts`); a small dot marks the ones still
+"Soon" (Report Generator, Data Explorer). The breadcrumb at the top ("Studio / Flowchart
+Builder") just reflects whichever tool is active.
+
+Switching tools doesn't unmount them — Flowchart Builder and Spec Builder both stay
+mounted (just hidden) in the background, so an in-progress diagram or an unsaved edit in
+a spec survives clicking to another tool and back. This matters more for Spec Builder,
+which autosaves on a 2-second debounce: switching away mid-edit doesn't lose anything.
+
+## Using Flowchart Builder
 
 1. Paste source material or upload a `.txt`/`.md`/`.pdf`/`.docx` file, and enter a
    prompt describing the flowchart you want.
@@ -97,11 +109,31 @@ above) for either tool to actually generate anything.
    - **Edge style**: curved, straight, right-angle, or rounded right-angle —
      changes which React Flow path function renders each edge.
    - **Theme**: swaps the entire app's color palette at runtime (rail, buttons,
-     node/edge colors, PPTX export) via CSS custom properties — not just the
-     canvas.
+     node/edge colors, PPTX export, and Spec Builder's own shadcn components) via
+     CSS custom properties — not just the canvas.
    - **Snap to grid**: constrains dragged node positions to a 16px grid.
 6. Export the current diagram to PNG or PDF client-side via the toolbar. **Export
    PPTX** is only enabled on the Compact (16:9) layout, since that's the one
    guaranteed to fit a single slide — it generates a native, editable PowerPoint
    file (PowerPoint's own Flowchart autoshapes, not a picture) via `pptxgenjs`,
    using the currently selected theme's colors.
+
+## Using Spec Builder
+
+1. Click "New Project," name it, and paste raw notes — a brain-dump, a meeting recap,
+   whatever you have.
+2. If anything's ambiguous, answer a short round of clarifying questions (or leave one
+   blank to accept its suggested default); otherwise it goes straight to drafting.
+3. Read the generated spec: prioritized user stories with acceptance scenarios, edge
+   cases, functional/non-functional requirements, key entities, and success criteria.
+   Click any block to edit it in place — everything autosaves.
+4. Review the Architecture Decisions and Epics sections the backend drafts alongside the
+   spec (each independently regenerable), generate a user journey or sequence diagram
+   from the spec on demand, and switch to the Comms tab to maintain stakeholders and
+   generate an executive/engineering/sales brief.
+5. If Jira is configured (`pm-portal/config/.env`), push epics and stories to a real
+   project, import an existing one, or sync delivery status back in.
+
+This is the condensed version — the full feature set (versioning, diffs, recurring
+updates, glossary, known gaps) is documented in
+[`pm-portal/README.md`](pm-portal/README.md#features).
