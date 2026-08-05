@@ -46,9 +46,18 @@ app = FastAPI(title="PM Portal API")
 
 app.add_middleware(
     CORSMiddleware,
-    # 5174: this app's own dev server, now embedded as a Studio tool panel.
-    # 5173/3000 kept so it still works if run standalone, outside Studio.
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
+    # This app is mounted at /pm on Studio's own backend (see
+    # backend/app/pm_portal_app.py) and its routes are called directly by
+    # Studio's frontend (port 5173) -- both localhost and 127.0.0.1 variants,
+    # since browsers treat those as different origins for CORS. 3000/5174
+    # kept so this still works if ever run standalone again.
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )

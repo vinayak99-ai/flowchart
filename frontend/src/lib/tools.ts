@@ -31,10 +31,10 @@ export const TOOLS: ToolDef[] = [
     status: 'soon',
     icon: ReportIcon,
     description:
-      'Turn structured data into branded PDF and slide reports, using the same export ' +
-      'pipeline Flowchart Builder already runs on PNG/PDF/PPTX — generalized to tables, ' +
-      'charts, and narrative sections.',
-    sharedWith: 'Shares export engine with Flowchart Builder',
+      'Turn a Spec Builder project — its stories, requirements, epics, and stakeholder ' +
+      'briefs — into a branded PDF or slide deck for leadership review, using the same ' +
+      'export pipeline Flowchart Builder already runs on PNG/PDF/PPTX.',
+    sharedWith: 'Reads Spec Builder projects, shares export engine with Flowchart Builder',
   },
   {
     id: 'data',
@@ -42,9 +42,9 @@ export const TOOLS: ToolDef[] = [
     status: 'soon',
     icon: DataIcon,
     description:
-      "Browse and query the datasets other Studio tools read from — the same source " +
-      'material you’d paste into Flowchart Builder, indexed and searchable without ' +
-      'leaving the workspace.',
-    sharedWith: 'Shared data layer across Studio tools',
+      'Browse and query across every Spec Builder project at once — search stories and ' +
+      'requirements by keyword, track epic impact and Jira delivery status portfolio-wide, ' +
+      'without opening each project individually.',
+    sharedWith: 'Reads across all Spec Builder projects',
   },
 ]

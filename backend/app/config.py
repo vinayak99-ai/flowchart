@@ -8,7 +8,11 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
-    cors_origins: str = "http://localhost:5173"
+    # Both localhost and 127.0.0.1 -- browsers treat them as different
+    # origins for CORS, and this middleware wraps the whole app, including
+    # the /pm mount (app/pm_portal_app.py), so it has to cover whichever
+    # one the frontend actually loaded from.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -1,15 +1,16 @@
 # AI PM Portal (Spec Builder)
 
-> **Vendored into Studio.** This is a copy of [`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm),
-> brought into this repo so it can run as Studio's "Spec Builder" tool (embedded
-> via iframe — see the root [`README.md`](../README.md#running-everything-together)
-> for how all the pieces run together). Two things differ from the original:
-> the backend defaults to **port 8001** and the frontend to **port 5174**
-> (both were 8000/5173, which collide with Studio's own flowchart backend and
-> frontend), and `frontend/src/App.tsx` no longer renders its own header,
-> since Studio's rail + breadcrumb already frame it. Everything else —
-> features, data model, `~/pm-portal-data` storage — is unchanged from
-> upstream. This is a one-way copy, not a git submodule or synced fork:
+> **Merged into Studio.** This directory holds the backend half of a copy of
+> [`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm) — the frontend
+> half was merged into `frontend/src/features/spec-builder/` (Studio's own
+> React app), and `backend/` here is no longer run as its own process: it's
+> imported by `../backend/app/pm_portal_app.py` and mounted at `/pm` on
+> Studio's single API process (`app.mount("/pm", pm_portal_app)`). Its
+> internal route/agent/persistence code (`main.py`, `agents.py`,
+> `persistence.py`, ...) is otherwise unchanged from upstream — see the root
+> [`README.md`](../README.md#running-everything-together) for how to run the
+> merged app, and the "Merge notes" section below for exactly what changed
+> and why. This is a one-way copy, not a git submodule or synced fork:
 > pulling in future upstream changes means re-copying by hand.
 
 An AI-assisted tool for product managers: paste raw notes about a feature or
@@ -27,9 +28,12 @@ credential storage; your data lives in plain JSON files on your own machine.
 > in the `vinayak99-ai/learn` repo's `plans/` folder — that repo has the full
 > design history and roadmap context this implementation was built from.
 
-## Quick start
+## Setup
 
-**1. Set your model + API key**
+Set your model + API key — this is the only setup specific to this
+directory; there's no separate install or process to start (see the root
+[`README.md`](../README.md#running-everything-together) for running the
+merged app as a whole):
 
 ```bash
 cp config/.env.example config/.env
@@ -42,29 +46,11 @@ Optionally, also set `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` /
 status from a real Jira project (see `config/.env.example` for details) —
 leave them unset to skip Jira entirely; everything else works without it.
 
-**2. Backend**
-
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate      # .venv\Scripts\activate on Windows
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
-```
-
-API docs at `http://localhost:8001/docs`.
-
-**3. Frontend** (separate terminal)
-
-```bash
-cd frontend
-npm install
-cp .env.example .env   # points VITE_API_BASE at localhost:8001
-npm run dev
-```
-
-App at `http://localhost:5174` — or open Studio (`../frontend`) and click
-"Spec Builder" in the rail, which embeds this same dev server.
+`backend/requirements.txt` is documentation of what this code needs, not an
+install target — its packages (`pydantic-ai`, `jira`, ...) are installed as
+part of `../backend/requirements.txt`, since both run in the same Python
+process now. API docs for the mounted routes are at
+`http://localhost:8000/pm/docs` once the merged backend is running.
 
 ## Features
 
@@ -290,13 +276,56 @@ document.
 ```
 .
   backend/     FastAPI + PydanticAI (extraction -> clarify -> generation -> architecture -> epics, plus diagram/brief/update/enrichment agents)
-  frontend/    React + Vite + TypeScript + Tailwind CSS + shadcn/ui
+               -- mounted at /pm on ../backend's own FastAPI app, not run standalone
   config/      .env.example (copy to config/.env with AIPM_MODEL + your API key)
 ```
+
+The frontend that used to live here is now
+[`../frontend/src/features/spec-builder/`](../frontend/src/features/spec-builder)
+— Studio's own React app, not a separate one.
 
 Provider-agnostic model config: `AIPM_MODEL=anthropic:claude-sonnet-5` or
 `AIPM_MODEL=openai:gpt-5` (or any other pydantic-ai-supported provider
 string) — set once in `config/.env`, no code changes.
+
+## Merge notes
+
+What actually changed to fold this into Studio as one backend + one frontend,
+for whoever re-copies from upstream `vinayak99-ai/aipm` later:
+
+- **Backend**: nothing in `backend/*.py` changed. `../backend/app/pm_portal_app.py`
+  puts this directory on `sys.path` and imports its `main.py` as a module, so
+  its own flat, same-directory imports (`from persistence import ...`) keep
+  resolving without being rewritten. `../backend/app/main.py` then does
+  `app.mount("/pm", pm_portal_app)`. `backend/main.py`'s own `CORSMiddleware`
+  allowlist gained `http://127.0.0.1:5173`/`5174` alongside the `localhost`
+  origins — browsers treat `localhost` and `127.0.0.1` as different origins,
+  and Starlette's outer-app middleware (`../backend/app/main.py`'s own CORS
+  config) wraps the whole app including this mount, so *both* layers needed
+  the fix, not just this one.
+- **Frontend**: `frontend/src/App.tsx` (now `App.tsx`'s logic lives in
+  [`SpecBuilderApp.tsx`](../frontend/src/features/spec-builder/SpecBuilderApp.tsx))
+  no longer renders its own header — Studio's rail + breadcrumb frame it
+  instead; only the density/theme toggle buttons survived, moved into a slim
+  bar. Everything under `frontend/src/{pages,components,hooks,lib}/` moved to
+  `../frontend/src/features/spec-builder/{pages,components,hooks,lib}/` (own
+  `@/lib/api.ts`, `@/lib/types.ts`, etc. would otherwise collide by name with
+  Studio's unrelated `lib/api.ts`/`lib/theme.ts`). `frontend/src/components/ui/`
+  (the shadcn primitives) and `frontend/src/lib/utils.ts` (the `cn()` helper
+  they all import) moved to Studio's shared, top-level
+  `../frontend/src/components/ui/` and `../frontend/src/lib/utils.ts` instead
+  — those aren't Spec-Builder-specific, and future Studio tools can reuse them.
+- **Design tokens**: `frontend/src/index.css`'s shadcn token set was merged
+  into `../frontend/src/index.css`, *except* `--primary`/`--accent` (and
+  their `@theme inline` mappings) — those two names already existed in
+  Studio's own token set (`--color-primary`, `--color-accent`, swapped at
+  runtime by `lib/themes.ts`), so every shadcn component's `bg-primary`/
+  `text-primary`/`bg-accent`/etc. now resolves through Studio's actual brand
+  color instead of shadcn's default grayscale, without editing any component.
+  `--primary-foreground`/`--accent-foreground` were pinned to a constant
+  value in both light and dark (rather than flipping the way upstream
+  shadcn's do), since they're now paired with a fixed saturated brand color,
+  not a gray that itself flips.
 
 ## Known gaps (not implemented)
 
