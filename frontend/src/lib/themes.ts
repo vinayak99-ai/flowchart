@@ -62,10 +62,9 @@ const CSS_VAR_BY_PALETTE_KEY: Record<keyof DiagramPalette, string> = {
   neutral900: '--color-neutral-900',
 }
 
-export function applyTheme(themeName: ThemeName): void {
+export function applyTheme(themeName: ThemeName, target: HTMLElement): void {
   const palette = themePalettes[themeName]
-  const root = document.documentElement
   for (const key of Object.keys(CSS_VAR_BY_PALETTE_KEY) as (keyof DiagramPalette)[]) {
-    root.style.setProperty(CSS_VAR_BY_PALETTE_KEY[key], palette[key])
+    target.style.setProperty(CSS_VAR_BY_PALETTE_KEY[key], palette[key])
   }
 }

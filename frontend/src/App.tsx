@@ -22,9 +22,16 @@ function App() {
   const [themeName, setThemeName] = useState<ThemeName>('fidelity-green')
   const [snapToGrid, setSnapToGrid] = useState(false)
   const canvasRef = useRef<FlowchartCanvasHandle>(null)
+  const flowchartRootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    applyTheme(themeName)
+    // Scoped to this tool's own subtree (not document.documentElement) so
+    // picking a diagram theme here can't bleed into Studio's shell (Rail,
+    // TopBar) or into other tools like Spec Builder, which share the same
+    // --color-primary/--color-accent token names for their own branding.
+    if (flowchartRootRef.current) {
+      applyTheme(themeName, flowchartRootRef.current)
+    }
   }, [themeName])
 
   const comingSoonTool = TOOLS.find((tool) => tool.id === activeTool && tool.status === 'soon')
@@ -37,7 +44,10 @@ function App() {
 
         {/* Always mounted (just hidden) so React Flow keeps its layout/drag state
             when the user switches to another tool and back. */}
-        <div className={`min-h-0 flex-1 ${activeTool === 'flowchart' ? 'flex' : 'hidden'}`}>
+        <div
+          ref={flowchartRootRef}
+          className={`min-h-0 flex-1 ${activeTool === 'flowchart' ? 'flex' : 'hidden'}`}
+        >
           <Sidebar onResult={setResult} issues={result?.issues ?? []} />
           <main className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2">
