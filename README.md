@@ -58,5 +58,10 @@ upload to work.
    React Flow, themed via a Tailwind class map keyed by node/edge type.
 4. Double-click a node label to rename it in place; drag nodes to adjust layout.
    These edits are local only — they never call the backend.
-5. Export the current diagram to PNG or PDF client-side via the toolbar above the
-   canvas.
+5. Switch the layout between **Flowchart** (elk `layered`, top-down) and **Compact
+   (16:9)** (elk `rectpacking`, packed to a slide-shaped aspect ratio) via the toggle
+   above the canvas.
+6. Export the current diagram to PNG or PDF client-side via the toolbar. **Export
+   PPTX** is only enabled on the Compact (16:9) layout, since that's the one
+   guaranteed to fit a single slide — it generates a native, editable PowerPoint
+   file (PowerPoint's own Flowchart autoshapes, not a picture) via `pptxgenjs`.

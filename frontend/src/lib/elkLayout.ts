@@ -7,22 +7,37 @@ const elk = new ELK()
 export const NODE_WIDTH = 200
 export const NODE_HEIGHT = 72
 
-const layoutOptions = {
-  'elk.algorithm': 'layered',
-  'elk.direction': 'DOWN',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '70',
-  'elk.spacing.nodeNode': '48',
-  'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+// 16:9 — matches the PPTX slide aspect ratio, so a rectpacking layout is already
+// slide-shaped before export ever touches it.
+const SLIDE_ASPECT_RATIO = '1.7778'
+
+export type LayoutAlgorithm = 'layered' | 'rectpacking'
+
+const layoutOptionsByAlgorithm: Record<LayoutAlgorithm, Record<string, string>> = {
+  layered: {
+    'elk.algorithm': 'layered',
+    'elk.direction': 'DOWN',
+    'elk.layered.spacing.nodeNodeBetweenLayers': '70',
+    'elk.spacing.nodeNode': '48',
+    'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+  },
+  rectpacking: {
+    'elk.algorithm': 'rectpacking',
+    'elk.aspectRatio': SLIDE_ASPECT_RATIO,
+    'elk.spacing.nodeNode': '32',
+    'elk.contentAlignment': 'V_CENTER H_CENTER',
+  },
 }
 
 export type DiagramNodeData = DiagramNode & { groupLabel?: string } & Record<string, unknown>
 
 export async function layoutDiagram(
   diagram: FlowchartDiagram,
+  algorithm: LayoutAlgorithm = 'layered',
 ): Promise<{ nodes: Node<DiagramNodeData, 'diagramNode'>[]; edges: Edge<{ type: string }, 'diagramEdge'>[] }> {
   const elkGraph: ElkNode = {
     id: 'root',
-    layoutOptions,
+    layoutOptions: layoutOptionsByAlgorithm[algorithm],
     children: diagram.nodes.map((node) => ({
       id: node.id,
       width: NODE_WIDTH,
