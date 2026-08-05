@@ -1,10 +1,15 @@
-# Flowchart Studio
+# Studio
 
-A local web app that turns source material + a prompt into an interactive, editable
-flowchart. An OpenAI-backed FastAPI service derives structured diagram data (nodes,
-edges, groups); the React frontend lays it out with elkjs, renders it with React Flow,
-and themes it with Tailwind CSS. Editing, layout, and export to PNG/PDF all happen
-client-side.
+A local, multi-tool web workspace. The first tool, **Flowchart Builder**, turns source
+material + a prompt into an interactive, editable flowchart: an OpenAI-backed FastAPI
+service derives structured diagram data (nodes, edges, groups); the React frontend lays
+it out with elkjs, renders it with React Flow, and themes it with Tailwind CSS. Editing,
+layout, and export all happen client-side.
+
+Studio's shell is a left icon rail for switching between tools (see the `Rail` and
+`TOOLS` registry in `frontend/src/lib/tools.ts`) — Flowchart Builder is fully built;
+Report Generator and Data Explorer are placeholders for future tools that will share
+Flowchart Builder's export pipeline and data layer.
 
 See [`docs/architecture.md`](docs/architecture.md) for the full architecture and data flow.
 
@@ -67,7 +72,7 @@ upload to work.
      (hidden for `Compact`, which has no directional notion).
    - **Edge style**: curved, straight, right-angle, or rounded right-angle —
      changes which React Flow path function renders each edge.
-   - **Theme**: swaps the entire app's color palette at runtime (top nav, buttons,
+   - **Theme**: swaps the entire app's color palette at runtime (rail, buttons,
      node/edge colors, PPTX export) via CSS custom properties — not just the
      canvas.
    - **Snap to grid**: constrains dragged node positions to a 16px grid.
