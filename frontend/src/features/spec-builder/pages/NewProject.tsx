@@ -48,7 +48,7 @@ export function NewProject({ onGenerated, onNeedsClarification, onCancel }: NewP
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
+    <div className="mx-auto max-w-2xl px-6 py-6">
       <h1 className="mb-6 text-2xl font-semibold">New Project</h1>
 
       <Card>
