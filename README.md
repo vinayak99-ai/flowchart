@@ -1,23 +1,31 @@
 # Studio
 
-A local, multi-tool web workspace. The first tool, **Flowchart Builder**, turns source
-material + a prompt into an interactive, editable flowchart: an OpenAI-backed FastAPI
-service derives structured diagram data (nodes, edges, groups); the React frontend lays
-it out with elkjs, renders it with React Flow, and themes it with Tailwind CSS. Editing,
-layout, and export all happen client-side.
+A local, multi-tool web workspace for product management. Studio's shell is a left icon
+rail for switching between tools (see the `Rail` and `TOOLS` registry in
+`frontend/src/lib/tools.ts`):
 
-Studio's shell is a left icon rail for switching between tools (see the `Rail` and
-`TOOLS` registry in `frontend/src/lib/tools.ts`) — Flowchart Builder is fully built;
-Report Generator and Data Explorer are placeholders for future tools that will share
-Flowchart Builder's export pipeline and data layer.
+- **Flowchart Builder** — turns source material + a prompt into an interactive, editable
+  flowchart: an OpenAI-backed FastAPI service derives structured diagram data (nodes,
+  edges, groups); the React frontend lays it out with elkjs, renders it with React Flow,
+  and themes it with Tailwind CSS. Editing, layout, and export all happen client-side.
+- **Spec Builder** — turns raw notes into a structured spec (user stories, requirements,
+  architecture decisions, Jira-ready epics), plus diagrams, stakeholder briefs, and a
+  two-way Jira sync. This is [`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm)
+  vendored into `pm-portal/` and embedded as a Studio tool — see
+  [`pm-portal/README.md`](pm-portal/README.md) for what changed and its own setup, and
+  [`pm-portal/docs/`](pm-portal/docs) for its full feature/known-issues docs.
+- **Report Generator**, **Data Explorer** — placeholders for future tools that will share
+  Flowchart Builder's export pipeline and data layer.
 
-See [`docs/architecture.md`](docs/architecture.md) for the full architecture and data flow.
+See [`docs/architecture.md`](docs/architecture.md) for the Flowchart Builder architecture
+and data flow.
 
 ## Project layout
 
 ```
-backend/    FastAPI service (LLM calls + structural validation only)
-frontend/   React + Vite app (layout, rendering, theming, editing, export)
+backend/      FastAPI service for Flowchart Builder (LLM calls + structural validation only)
+frontend/     React + Vite app — the Studio shell (rail nav) plus Flowchart Builder
+pm-portal/    Spec Builder (backend + frontend), vendored from vinayak99-ai/aipm
 ```
 
 ## Backend setup
@@ -50,6 +58,27 @@ npm run dev
 
 Then open http://localhost:5173. The backend must be running for generation and file
 upload to work.
+
+## Running everything together
+
+Spec Builder is embedded via iframe rather than compiled into the Studio frontend
+bundle — its shadcn/ui theme tokens (`--primary`, `--accent`, ...) collide by name with
+Studio's own (`--color-primary`, `--color-accent`, ...), and reconciling that safely is
+follow-up work, not something to paper over with a risky CSS merge. Practically, this
+means running Studio's tool tabs each need their own process, four in total:
+
+| Process | Command | Port |
+|---|---|---|
+| Flowchart backend | `cd backend && uvicorn app.main:app --reload --port 8000` | 8000 |
+| Studio frontend | `cd frontend && npm run dev` | 5173 |
+| Spec Builder backend | `cd pm-portal/backend && uvicorn main:app --reload --port 8001` | 8001 |
+| Spec Builder frontend | `cd pm-portal/frontend && npm run dev` | 5174 |
+
+Each needs its own env file set up first — see that piece's setup section above
+(Flowchart backend/frontend) or [`pm-portal/README.md`](pm-portal/README.md) (Spec
+Builder, needs an Anthropic or OpenAI key, separate from Flowchart Builder's OpenAI key).
+Open Studio at http://localhost:5173 once all four are running; the Spec Builder tab
+won't load until its own two processes are up.
 
 ## How it works
 

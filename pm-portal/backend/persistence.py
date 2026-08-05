@@ -1,0 +1,221 @@
+import json
+import shutil
+import uuid
+from pathlib import Path
+from datetime import datetime, timezone
+from typing import Literal, NamedTuple
+from pydantic import BaseModel, Field
+
+DATA_ROOT = Path.home() / "pm-portal-data" / "projects"
+
+class ProjectMeta(BaseModel):
+    id: str
+    name: str
+    created_at: str
+    updated_at: str
+
+class Stakeholder(BaseModel):
+    id: str = Field(description="e.g. 'SH-1', assigned in Python")
+    name: str
+    role: str
+    audience: Literal["executive", "engineering", "sales"]
+    influence: Literal["high", "medium", "low"] = "medium"
+    interest: Literal["high", "medium", "low"] = "medium"
+    cares_about: str = ""
+
+class GlossaryTerm(BaseModel):
+    id: str = Field(description="e.g. 'GT-1', assigned in Python")
+    term: str
+    definition: str
+
+class PendingClarification(NamedTuple):
+    raw_notes: str
+    extracted: object  # ExtractedRequirements
+    questions: list    # list[ClarifyQuestion] -- current round, unanswered
+    history: list       # list[AnsweredClarification] -- prior rounds, answered
+    round: int
+
+def _project_dir(project_id: str) -> Path:
+    return DATA_ROOT / project_id
+
+def create_project(name: str) -> ProjectMeta:
+    project_id = f"proj_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    meta = ProjectMeta(id=project_id, name=name, created_at=now, updated_at=now)
+
+    proj_dir = _project_dir(project_id)
+    (proj_dir / "artifacts").mkdir(parents=True, exist_ok=True)
+    (proj_dir / "raw_inputs").mkdir(exist_ok=True)
+
+    with open(proj_dir / "meta.json", "w") as f:
+        f.write(meta.model_dump_json(indent=2))
+
+    return meta
+
+def list_projects() -> list[ProjectMeta]:
+    if not DATA_ROOT.exists():
+        return []
+    projects = []
+    for proj_dir in DATA_ROOT.iterdir():
+        meta_file = proj_dir / "meta.json"
+        if meta_file.exists():
+            projects.append(ProjectMeta.model_validate_json(meta_file.read_text()))
+    return sorted(projects, key=lambda p: p.updated_at, reverse=True)
+
+def get_project(project_id: str) -> ProjectMeta:
+    meta_file = _project_dir(project_id) / "meta.json"
+    return ProjectMeta.model_validate_json(meta_file.read_text())
+
+def rename_project(project_id: str, name: str) -> ProjectMeta:
+    meta = get_project(project_id)
+    meta.name = name
+    meta.updated_at = datetime.now(timezone.utc).isoformat()
+    (_project_dir(project_id) / "meta.json").write_text(meta.model_dump_json(indent=2))
+    return meta
+
+def delete_project(project_id: str) -> None:
+    shutil.rmtree(_project_dir(project_id), ignore_errors=True)
+
+def load_stakeholders(project_id: str) -> list[Stakeholder]:
+    path = _project_dir(project_id) / "stakeholders.json"
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text())
+    return [Stakeholder.model_validate(s) for s in data]
+
+def save_stakeholders(project_id: str, stakeholders: list[Stakeholder]) -> None:
+    path = _project_dir(project_id) / "stakeholders.json"
+    path.write_text(json.dumps([s.model_dump() for s in stakeholders], indent=2))
+
+def load_glossary(project_id: str) -> list[GlossaryTerm]:
+    path = _project_dir(project_id) / "glossary.json"
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text())
+    return [GlossaryTerm.model_validate(t) for t in data]
+
+def save_glossary(project_id: str, terms: list[GlossaryTerm]) -> None:
+    path = _project_dir(project_id) / "glossary.json"
+    path.write_text(json.dumps([t.model_dump() for t in terms], indent=2))
+
+class ArtifactVersionMeta(BaseModel):
+    version: int
+    saved_at: str
+    reason: str
+
+def _versions_dir(project_id: str, artifact_id: str) -> Path:
+    return _project_dir(project_id) / "artifacts" / f"{artifact_id}_versions"
+
+def save_artifact(project_id: str, prd, artifact_id: str = None, reason: str = "update") -> str:
+    artifact_id = artifact_id or f"prd_{uuid.uuid4().hex[:8]}"
+    artifacts_dir = _project_dir(project_id) / "artifacts"
+
+    with open(artifacts_dir / f"{artifact_id}.json", "w") as f:
+        f.write(prd.model_dump_json(indent=2))
+
+    # Version snapshot: every save that actually changed content appends an
+    # immutable copy, so "what changed since the exec review" always has an
+    # answer. Identical re-saves are deduped to keep the timeline meaningful.
+    versions_dir = _versions_dir(project_id, artifact_id)
+    versions_dir.mkdir(parents=True, exist_ok=True)
+    new_content = prd.model_dump()
+    existing = sorted(versions_dir.glob("v*.json"))
+    if existing:
+        latest = json.loads(existing[-1].read_text())
+        if latest["prd"] == new_content:
+            _touch_project(project_id)
+            return artifact_id
+        next_version = latest["version"] + 1
+    else:
+        next_version = 1
+    snapshot = {
+        "version": next_version,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "reason": reason,
+        "prd": new_content,
+    }
+    (versions_dir / f"v{next_version:04d}.json").write_text(json.dumps(snapshot, indent=2))
+
+    _touch_project(project_id)
+    return artifact_id
+
+def load_artifact(project_id: str, artifact_id: str):
+    from agents import GeneratedPRD
+    path = _project_dir(project_id) / "artifacts" / f"{artifact_id}.json"
+    return GeneratedPRD.model_validate_json(path.read_text())
+
+def list_artifact_versions(project_id: str, artifact_id: str) -> list[ArtifactVersionMeta]:
+    versions_dir = _versions_dir(project_id, artifact_id)
+    if not versions_dir.exists():
+        return []
+    metas = []
+    for f in sorted(versions_dir.glob("v*.json")):
+        data = json.loads(f.read_text())
+        metas.append(ArtifactVersionMeta(
+            version=data["version"], saved_at=data["saved_at"], reason=data["reason"]
+        ))
+    return metas
+
+def load_artifact_version(project_id: str, artifact_id: str, version: int):
+    from agents import GeneratedPRD
+    path = _versions_dir(project_id, artifact_id) / f"v{version:04d}.json"
+    data = json.loads(path.read_text())
+    return GeneratedPRD.model_validate(data["prd"])
+
+def list_artifacts(project_id: str) -> list[str]:
+    artifacts_dir = _project_dir(project_id) / "artifacts"
+    if not artifacts_dir.exists():
+        return []
+    return [f.stem for f in artifacts_dir.glob("*.json")]
+
+def delete_artifact(project_id: str, artifact_id: str):
+    path = _project_dir(project_id) / "artifacts" / f"{artifact_id}.json"
+    path.unlink(missing_ok=True)
+    shutil.rmtree(_versions_dir(project_id, artifact_id), ignore_errors=True)
+
+def save_raw_input(project_id: str, text: str) -> str:
+    input_id = f"input_{uuid.uuid4().hex[:8]}"
+    path = _project_dir(project_id) / "raw_inputs" / f"{input_id}.txt"
+    path.write_text(text)
+    return input_id
+
+def save_pending_clarification(
+    project_id: str, raw_notes: str, extracted, questions, history, round_num: int
+) -> None:
+    data = {
+        "raw_notes": raw_notes,
+        "extracted": extracted.model_dump(),
+        "questions": [q.model_dump() for q in questions],
+        "history": [h.model_dump() for h in history],
+        "round": round_num,
+    }
+    path = _project_dir(project_id) / "pending_clarification.json"
+    path.write_text(json.dumps(data, indent=2))
+
+def load_pending_clarification(project_id: str) -> PendingClarification | None:
+    from agents import ExtractedRequirements, ClarifyQuestion, AnsweredClarification
+
+    path = _project_dir(project_id) / "pending_clarification.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text())
+    extracted = ExtractedRequirements.model_validate(data["extracted"])
+    questions = [ClarifyQuestion.model_validate(q) for q in data["questions"]]
+    history = [AnsweredClarification.model_validate(h) for h in data.get("history", [])]
+    return PendingClarification(
+        raw_notes=data["raw_notes"],
+        extracted=extracted,
+        questions=questions,
+        history=history,
+        round=data.get("round", 1),
+    )
+
+def clear_pending_clarification(project_id: str) -> None:
+    path = _project_dir(project_id) / "pending_clarification.json"
+    path.unlink(missing_ok=True)
+
+def _touch_project(project_id: str):
+    meta = get_project(project_id)
+    meta.updated_at = datetime.now(timezone.utc).isoformat()
+    meta_file = _project_dir(project_id) / "meta.json"
+    meta_file.write_text(meta.model_dump_json(indent=2))

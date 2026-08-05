@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Rail } from './components/Rail'
 import { TopBar } from './components/TopBar'
 import { ComingSoonPanel } from './components/ComingSoonPanel'
+import { SpecBuilderPanel } from './components/SpecBuilderPanel'
 import { Sidebar } from './components/Sidebar'
 import { FlowchartCanvas, type FlowchartCanvasHandle } from './components/FlowchartCanvas'
 import { ExportControls } from './components/ExportControls'
@@ -26,7 +27,7 @@ function App() {
     applyTheme(themeName)
   }, [themeName])
 
-  const comingSoonTool = activeTool === 'flowchart' ? null : TOOLS.find((tool) => tool.id === activeTool)
+  const comingSoonTool = TOOLS.find((tool) => tool.id === activeTool && tool.status === 'soon')
 
   return (
     <div className="flex h-screen">
@@ -74,6 +75,12 @@ function App() {
               />
             </div>
           </main>
+        </div>
+
+        {/* Also always mounted+hidden, so switching tools doesn't reload the
+            embedded app and lose in-progress (not-yet-autosaved) edits. */}
+        <div className={`min-h-0 flex-1 ${activeTool === 'spec' ? 'flex' : 'hidden'}`}>
+          <SpecBuilderPanel />
         </div>
 
         {comingSoonTool ? <ComingSoonPanel tool={comingSoonTool} /> : null}
