@@ -3,18 +3,20 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
-  --color-fidelity-green: #00754a;
-  --color-fidelity-green-dark: #005334;
-  --color-fidelity-green-light: #e6f2ec;
-  --color-fidelity-gold: #c9a227;
-  --color-fidelity-gold-light: #f8f1dd;
+  /* Theme tokens — values are swapped at runtime by lib/themes.ts (applyTheme),
+     so these defaults are just the initial palette, not fixed brand colors. */
+  --color-primary: #00754a;
+  --color-primary-dark: #005334;
+  --color-primary-light: #e6f2ec;
+  --color-accent: #c9a227;
+  --color-accent-light: #f8f1dd;
 
-  --color-fidelity-gray-50: #f7f8f7;
-  --color-fidelity-gray-100: #edefec;
-  --color-fidelity-gray-200: #dde1dc;
-  --color-fidelity-gray-300: #c3c9c2;
-  --color-fidelity-gray-600: #5b6660;
-  --color-fidelity-gray-900: #1f2622;
+  --color-neutral-50: #f7f8f7;
+  --color-neutral-100: #edefec;
+  --color-neutral-200: #dde1dc;
+  --color-neutral-300: #c3c9c2;
+  --color-neutral-600: #5b6660;
+  --color-neutral-900: #1f2622;
 }
 
 html,
@@ -26,6 +28,6 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background-color: var(--color-fidelity-gray-50);
-  color: var(--color-fidelity-gray-900);
+  background-color: var(--color-neutral-50);
+  color: var(--color-neutral-900);
 }

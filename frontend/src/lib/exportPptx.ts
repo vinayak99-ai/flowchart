@@ -1,5 +1,6 @@
 import pptxgen from 'pptxgenjs'
 import { NODE_HEIGHT, NODE_WIDTH } from './elkLayout'
+import type { DiagramPalette } from './themes'
 import type { EdgeType, NodeType } from '../types'
 import type { DiagramFlowNode } from '../components/nodes/DiagramNodeComponent'
 import type { DiagramFlowEdge } from '../components/edges/DiagramEdgeComponent'
@@ -20,20 +21,31 @@ const shapeByNodeType: Record<NodeType, string> = {
   subprocess: 'flowChartPredefinedProcess',
 }
 
-// Same hex values as src/lib/theme.ts, since pptxgenjs needs literal hex, not
-// Tailwind classes.
-const styleByNodeType: Record<NodeType, { fill: string; line: string; font: string; bold?: boolean }> = {
-  start: { fill: '00754A', line: '005334', font: 'FFFFFF', bold: true },
-  end: { fill: '1F2622', line: '1F2622', font: 'FFFFFF', bold: true },
-  process: { fill: 'FFFFFF', line: 'DDE1DC', font: '1F2622' },
-  decision: { fill: 'F8F1DD', line: 'C9A227', font: '1F2622' },
-  io: { fill: 'E6F2EC', line: '00754A', font: '1F2622' },
-  subprocess: { fill: 'FFFFFF', line: '5B6660', font: '1F2622' },
+// pptxgenjs wants bare uppercase hex (no '#'); theme palettes store '#rrggbb'.
+function hex(value: string): string {
+  return value.replace('#', '').toUpperCase()
 }
 
-const styleByEdgeType: Record<EdgeType, { color: string; dash: 'solid' | 'dash' }> = {
-  default: { color: '5B6660', dash: 'solid' },
-  conditional: { color: 'C9A227', dash: 'dash' },
+// Derived from the currently active palette (src/lib/themes.ts) so the deck always
+// matches whatever theme is selected on screen — not a fixed brand color.
+function buildNodeStyles(
+  palette: DiagramPalette,
+): Record<NodeType, { fill: string; line: string; font: string; bold?: boolean }> {
+  return {
+    start: { fill: hex(palette.primary), line: hex(palette.primaryDark), font: 'FFFFFF', bold: true },
+    end: { fill: hex(palette.neutral900), line: hex(palette.neutral900), font: 'FFFFFF', bold: true },
+    process: { fill: 'FFFFFF', line: hex(palette.neutral200), font: hex(palette.neutral900) },
+    decision: { fill: hex(palette.accentLight), line: hex(palette.accent), font: hex(palette.neutral900) },
+    io: { fill: hex(palette.primaryLight), line: hex(palette.primary), font: hex(palette.neutral900) },
+    subprocess: { fill: 'FFFFFF', line: hex(palette.neutral600), font: hex(palette.neutral900) },
+  }
+}
+
+function buildEdgeStyles(palette: DiagramPalette): Record<EdgeType, { color: string; dash: 'solid' | 'dash' }> {
+  return {
+    default: { color: hex(palette.neutral600), dash: 'solid' },
+    conditional: { color: hex(palette.accent), dash: 'dash' },
+  }
 }
 
 interface Box {
@@ -64,16 +76,20 @@ export interface ExportPptxOptions {
 export async function exportPptx(
   nodes: DiagramFlowNode[],
   edges: DiagramFlowEdge[],
+  palette: DiagramPalette,
   options: ExportPptxOptions = {},
 ): Promise<void> {
   if (nodes.length === 0) return
+
+  const nodeStyles = buildNodeStyles(palette)
+  const edgeStyles = buildEdgeStyles(palette)
 
   const pptx = new pptxgen()
   pptx.defineLayout({ name: 'FLOWCHART_16x9', width: SLIDE_WIDTH_IN, height: SLIDE_HEIGHT_IN })
   pptx.layout = 'FLOWCHART_16x9'
 
   const slide = pptx.addSlide()
-  slide.background = { color: 'F7F8F7' }
+  slide.background = { color: hex(palette.neutral50) }
 
   slide.addText(options.title ?? 'Flowchart', {
     x: MARGIN_IN,
@@ -83,15 +99,15 @@ export async function exportPptx(
     fontFace: 'Calibri',
     fontSize: 22,
     bold: true,
-    color: '1F2622',
+    color: hex(palette.neutral900),
   })
   slide.addShape('rect', {
     x: MARGIN_IN,
     y: 0.25 + TITLE_HEIGHT_IN - 0.1,
     w: SLIDE_WIDTH_IN - MARGIN_IN * 2,
     h: 0.03,
-    fill: { color: '00754A' },
-    line: { color: '00754A' },
+    fill: { color: hex(palette.primary) },
+    line: { color: hex(palette.primary) },
   })
 
   const contentX = MARGIN_IN
@@ -132,7 +148,7 @@ export async function exportPptx(
     const end = pointTowards(targetBox, sourceCenter)
 
     const edgeType = (edge.data?.type ?? 'default') as EdgeType
-    const style = styleByEdgeType[edgeType]
+    const style = edgeStyles[edgeType]
 
     slide.addShape('line', {
       x: Math.min(start.x, end.x),
@@ -161,16 +177,16 @@ export async function exportPptx(
         valign: 'middle',
         fontFace: 'Calibri',
         fontSize: 9,
-        color: '1F2622',
+        color: hex(palette.neutral900),
         fill: { color: 'FFFFFF' },
-        line: { color: 'DDE1DC', width: 0.5 },
+        line: { color: hex(palette.neutral200), width: 0.5 },
       })
     }
   }
 
   for (const node of nodes) {
     const box = boxes.get(node.id)!
-    const style = styleByNodeType[node.data.type]
+    const style = nodeStyles[node.data.type]
 
     slide.addShape(shapeByNodeType[node.data.type] as 'rect', {
       x: box.x,

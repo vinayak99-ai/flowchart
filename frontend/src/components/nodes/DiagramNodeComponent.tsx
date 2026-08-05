@@ -23,7 +23,7 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
     }
   }, [draft, data, id])
 
-  const selectedRing = selected ? 'ring-2 ring-offset-2 ring-fidelity-green' : ''
+  const selectedRing = selected ? 'ring-2 ring-offset-2 ring-primary' : ''
 
   const labelContent = isEditing ? (
     <input
@@ -38,7 +38,7 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
           setIsEditing(false)
         }
       }}
-      className="w-full rounded border border-fidelity-green bg-white px-1 py-0.5 text-center text-xs text-fidelity-gray-900 outline-none"
+      className="w-full rounded border border-primary bg-white px-1 py-0.5 text-center text-xs text-neutral-900 outline-none"
       onClick={(event) => event.stopPropagation()}
     />
   ) : (
@@ -52,13 +52,13 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
 
   const handles = (
     <>
-      <Handle type="target" position={Position.Top} className="!bg-fidelity-gray-600" />
-      <Handle type="source" position={Position.Bottom} className="!bg-fidelity-gray-600" />
+      <Handle type="target" position={Position.Top} className="!bg-neutral-600" />
+      <Handle type="source" position={Position.Bottom} className="!bg-neutral-600" />
     </>
   )
 
   const groupTag = data.groupLabel ? (
-    <div className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-fidelity-gray-900 px-2 py-0.5 text-[9px] font-medium tracking-wide text-white">
+    <div className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-neutral-900 px-2 py-0.5 text-[9px] font-medium tracking-wide text-white">
       {data.groupLabel}
     </div>
   ) : null
@@ -93,8 +93,8 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
         className={`relative flex h-[72px] w-[200px] items-center justify-center rounded-md ${style.container} ${selectedRing}`}
       >
         {groupTag}
-        <div className="pointer-events-none absolute inset-y-0 left-1.5 w-px bg-fidelity-gray-600" />
-        <div className="pointer-events-none absolute inset-y-0 right-1.5 w-px bg-fidelity-gray-600" />
+        <div className="pointer-events-none absolute inset-y-0 left-1.5 w-px bg-neutral-600" />
+        <div className="pointer-events-none absolute inset-y-0 right-1.5 w-px bg-neutral-600" />
         {labelContent}
         {handles}
       </div>

@@ -1,6 +1,6 @@
 export function TopNav() {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-fidelity-green-dark bg-fidelity-green px-5 text-white shadow-sm">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-primary-dark bg-primary px-5 text-white shadow-sm">
       <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-sm font-bold">
           F

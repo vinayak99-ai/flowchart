@@ -1,7 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { Background, Controls, MiniMap, ReactFlow, useEdgesState, useNodesState } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { layoutDiagram, type LayoutAlgorithm } from '../lib/elkLayout'
+import { layoutDiagram, type LayoutAlgorithm, type LayoutDirection } from '../lib/elkLayout'
+import type { EdgeShape } from '../lib/theme'
+import { themePalettes, type ThemeName } from '../lib/themes'
 import type { FlowchartDiagram } from '../types'
 import { DiagramNodeComponent, type DiagramFlowNode } from './nodes/DiagramNodeComponent'
 import { DiagramEdgeComponent, type DiagramFlowEdge } from './edges/DiagramEdgeComponent'
@@ -9,6 +11,10 @@ import { DiagramEdgeComponent, type DiagramFlowEdge } from './edges/DiagramEdgeC
 interface FlowchartCanvasProps {
   diagram: FlowchartDiagram | null
   layoutAlgorithm: LayoutAlgorithm
+  layoutDirection: LayoutDirection
+  edgeShape: EdgeShape
+  themeName: ThemeName
+  snapToGrid: boolean
 }
 
 export interface FlowchartCanvasHandle {
@@ -18,9 +24,10 @@ export interface FlowchartCanvasHandle {
 
 const nodeTypes = { diagramNode: DiagramNodeComponent }
 const edgeTypes = { diagramEdge: DiagramEdgeComponent }
+const SNAP_GRID: [number, number] = [16, 16]
 
 export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvasProps>(
-  ({ diagram, layoutAlgorithm }, ref) => {
+  ({ diagram, layoutAlgorithm, layoutDirection, edgeShape, themeName, snapToGrid }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const [nodes, setNodes, onNodesChange] = useNodesState<DiagramFlowNode>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<DiagramFlowEdge>([])
@@ -34,6 +41,7 @@ export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvas
       [nodes, edges],
     )
 
+    // Recomputes positions — only needed when the diagram or layout geometry changes.
     useEffect(() => {
       if (!diagram || diagram.nodes.length === 0) {
         setNodes([])
@@ -42,7 +50,7 @@ export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvas
       }
 
       let cancelled = false
-      layoutDiagram(diagram, layoutAlgorithm).then(({ nodes: laidOutNodes, edges: laidOutEdges }) => {
+      layoutDiagram(diagram, layoutAlgorithm, layoutDirection).then(({ nodes: laidOutNodes, edges: laidOutEdges }) => {
         if (cancelled) return
         const withCallbacks: DiagramFlowNode[] = laidOutNodes.map((node) => ({
           ...node,
@@ -56,21 +64,38 @@ export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvas
           },
         }))
         setNodes(withCallbacks)
-        setEdges(laidOutEdges as DiagramFlowEdge[])
+        setEdges(
+          laidOutEdges.map((edge) => ({
+            ...edge,
+            data: { ...edge.data, edgeShape, themeName },
+          })) as DiagramFlowEdge[],
+        )
       })
 
       return () => {
         cancelled = true
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [diagram, layoutAlgorithm])
+    }, [diagram, layoutAlgorithm, layoutDirection])
+
+    // Restyle pass — edge shape/theme are just rendering choices, no need to re-run elk.
+    useEffect(() => {
+      setEdges(
+        (current) =>
+          current.map((edge) => ({
+            ...edge,
+            data: { type: edge.data?.type ?? 'default', edgeShape, themeName },
+          })) as DiagramFlowEdge[],
+      )
+    }, [edgeShape, themeName, setEdges])
 
     const isEmpty = useMemo(() => !diagram || diagram.nodes.length === 0, [diagram])
+    const palette = themePalettes[themeName]
 
     return (
-      <div ref={containerRef} className="relative h-full w-full bg-fidelity-gray-50">
+      <div ref={containerRef} className="relative h-full w-full bg-neutral-50">
         {isEmpty ? (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center text-fidelity-gray-600">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center text-neutral-600">
             <p className="text-sm font-medium">No flowchart yet</p>
             <p className="max-w-xs text-xs">
               Add source material and a prompt in the panel on the left, then generate to see your
@@ -86,16 +111,18 @@ export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvas
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
+            snapToGrid={snapToGrid}
+            snapGrid={SNAP_GRID}
             proOptions={{ hideAttribution: true }}
           >
-            <Background color="#dde1dc" gap={20} />
+            <Background color={palette.neutral200} gap={20} />
             <Controls />
             <MiniMap
               pannable
               zoomable
-              nodeColor="#00754a"
+              nodeColor={palette.primary}
               maskColor="rgba(237, 239, 236, 0.6)"
-              className="!border !border-fidelity-gray-200"
+              className="!border !border-neutral-200"
             />
           </ReactFlow>
         )}

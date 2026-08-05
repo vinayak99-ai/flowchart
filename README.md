@@ -58,10 +58,21 @@ upload to work.
    React Flow, themed via a Tailwind class map keyed by node/edge type.
 4. Double-click a node label to rename it in place; drag nodes to adjust layout.
    These edits are local only — they never call the backend.
-5. Switch the layout between **Flowchart** (elk `layered`, top-down) and **Compact
-   (16:9)** (elk `rectpacking`, packed to a slide-shaped aspect ratio) via the toggle
-   above the canvas.
+5. The gear icon above the canvas opens a settings panel that controls how the chart
+   is actually built and rendered — nothing here is cosmetic-only:
+   - **Layout algorithm**: `Flowchart` (elk `layered`, directional), `Tree` (elk
+     `mrtree`), or `Compact (16:9)` (elk `rectpacking`, packed to a slide-shaped
+     aspect ratio). Recomputes node positions via elkjs.
+   - **Direction**: top-down or left-right, for the `Flowchart`/`Tree` algorithms
+     (hidden for `Compact`, which has no directional notion).
+   - **Edge style**: curved, straight, right-angle, or rounded right-angle —
+     changes which React Flow path function renders each edge.
+   - **Theme**: swaps the entire app's color palette at runtime (top nav, buttons,
+     node/edge colors, PPTX export) via CSS custom properties — not just the
+     canvas.
+   - **Snap to grid**: constrains dragged node positions to a 16px grid.
 6. Export the current diagram to PNG or PDF client-side via the toolbar. **Export
    PPTX** is only enabled on the Compact (16:9) layout, since that's the one
    guaranteed to fit a single slide — it generates a native, editable PowerPoint
-   file (PowerPoint's own Flowchart autoshapes, not a picture) via `pptxgenjs`.
+   file (PowerPoint's own Flowchart autoshapes, not a picture) via `pptxgenjs`,
+   using the currently selected theme's colors.

@@ -81,17 +81,17 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
   const isGenerating = status === 'calling_llm' || status === 'validating'
 
   return (
-    <aside className="flex h-full w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-fidelity-gray-200 bg-white p-4">
+    <aside className="flex h-full w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-neutral-200 bg-white p-4">
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-fidelity-gray-600">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
           Source material
         </h2>
-        <div className="mt-2 flex gap-1 rounded-lg bg-fidelity-gray-100 p-1 text-xs font-medium">
+        <div className="mt-2 flex gap-1 rounded-lg bg-neutral-100 p-1 text-xs font-medium">
           <button
             type="button"
             onClick={() => setTab('paste')}
             className={`flex-1 rounded-md py-1.5 transition-colors ${
-              tab === 'paste' ? 'bg-white text-fidelity-green shadow-sm' : 'text-fidelity-gray-600'
+              tab === 'paste' ? 'bg-white text-primary shadow-sm' : 'text-neutral-600'
             }`}
           >
             Paste text
@@ -100,7 +100,7 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
             type="button"
             onClick={() => setTab('upload')}
             className={`flex-1 rounded-md py-1.5 transition-colors ${
-              tab === 'upload' ? 'bg-white text-fidelity-green shadow-sm' : 'text-fidelity-gray-600'
+              tab === 'upload' ? 'bg-white text-primary shadow-sm' : 'text-neutral-600'
             }`}
           >
             Upload file
@@ -109,11 +109,11 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
 
         {tab === 'upload' ? (
           <div className="mt-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-fidelity-gray-300 bg-fidelity-gray-50 px-3 py-4 text-center text-xs text-fidelity-gray-600 hover:border-fidelity-green hover:text-fidelity-green">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-3 py-4 text-center text-xs text-neutral-600 hover:border-primary hover:text-primary">
               <span className="font-medium">
                 {extracting ? 'Reading file…' : fileName ?? 'Click to choose a file'}
               </span>
-              <span className="mt-1 text-[10px] text-fidelity-gray-600">.txt, .md, .pdf, .docx</span>
+              <span className="mt-1 text-[10px] text-neutral-600">.txt, .md, .pdf, .docx</span>
               <input
                 type="file"
                 accept=".txt,.md,.pdf,.docx"
@@ -128,19 +128,19 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
           value={material}
           onChange={(event) => setMaterial(event.target.value)}
           placeholder="Paste source material (a process doc, transcript, requirements, etc.)"
-          className="mt-3 h-40 w-full resize-none rounded-lg border border-fidelity-gray-200 bg-fidelity-gray-50 p-2 text-xs text-fidelity-gray-900 outline-none focus:border-fidelity-green"
+          className="mt-3 h-40 w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-primary"
         />
       </div>
 
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-fidelity-gray-600">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
           Prompt
         </h2>
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder="e.g. Map this into a customer onboarding flowchart with decision points."
-          className="mt-2 h-20 w-full resize-none rounded-lg border border-fidelity-gray-200 bg-fidelity-gray-50 p-2 text-xs text-fidelity-gray-900 outline-none focus:border-fidelity-green"
+          className="mt-2 h-20 w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-primary"
         />
       </div>
 
@@ -148,14 +148,14 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
         type="button"
         onClick={handleGenerate}
         disabled={isGenerating}
-        className="rounded-md bg-fidelity-green py-2.5 text-sm font-semibold text-white transition-colors hover:bg-fidelity-green-dark disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-md bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isGenerating ? 'Generating…' : 'Generate flowchart'}
       </button>
 
       {status !== 'idle' ? (
         <p
-          className={`text-xs ${status === 'error' ? 'text-red-600' : 'text-fidelity-gray-600'}`}
+          className={`text-xs ${status === 'error' ? 'text-red-600' : 'text-neutral-600'}`}
         >
           {STATUS_LABEL[status]}
         </p>

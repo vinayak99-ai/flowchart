@@ -11,22 +11,41 @@ export const NODE_HEIGHT = 72
 // slide-shaped before export ever touches it.
 const SLIDE_ASPECT_RATIO = '1.7778'
 
-export type LayoutAlgorithm = 'layered' | 'rectpacking'
+export type LayoutAlgorithm = 'layered' | 'mrtree' | 'rectpacking'
+export type LayoutDirection = 'DOWN' | 'RIGHT'
 
-const layoutOptionsByAlgorithm: Record<LayoutAlgorithm, Record<string, string>> = {
-  layered: {
-    'elk.algorithm': 'layered',
-    'elk.direction': 'DOWN',
-    'elk.layered.spacing.nodeNodeBetweenLayers': '70',
-    'elk.spacing.nodeNode': '48',
-    'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-  },
-  rectpacking: {
-    'elk.algorithm': 'rectpacking',
-    'elk.aspectRatio': SLIDE_ASPECT_RATIO,
-    'elk.spacing.nodeNode': '32',
-    'elk.contentAlignment': 'V_CENTER H_CENTER',
-  },
+// rectpacking has no notion of direction — it packs for a target aspect ratio instead.
+export const DIRECTION_SUPPORTED: Record<LayoutAlgorithm, boolean> = {
+  layered: true,
+  mrtree: true,
+  rectpacking: false,
+}
+
+function buildLayoutOptions(algorithm: LayoutAlgorithm, direction: LayoutDirection): Record<string, string> {
+  switch (algorithm) {
+    case 'layered':
+      return {
+        'elk.algorithm': 'layered',
+        'elk.direction': direction,
+        'elk.layered.spacing.nodeNodeBetweenLayers': '70',
+        'elk.spacing.nodeNode': '48',
+        'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+      }
+    case 'mrtree':
+      return {
+        'elk.algorithm': 'mrtree',
+        'elk.direction': direction,
+        'elk.spacing.nodeNode': '48',
+        'elk.mrtree.spacing.nodeNodeBetweenLayers': '70',
+      }
+    case 'rectpacking':
+      return {
+        'elk.algorithm': 'rectpacking',
+        'elk.aspectRatio': SLIDE_ASPECT_RATIO,
+        'elk.spacing.nodeNode': '32',
+        'elk.contentAlignment': 'V_CENTER H_CENTER',
+      }
+  }
 }
 
 export type DiagramNodeData = DiagramNode & { groupLabel?: string } & Record<string, unknown>
@@ -34,10 +53,11 @@ export type DiagramNodeData = DiagramNode & { groupLabel?: string } & Record<str
 export async function layoutDiagram(
   diagram: FlowchartDiagram,
   algorithm: LayoutAlgorithm = 'layered',
+  direction: LayoutDirection = 'DOWN',
 ): Promise<{ nodes: Node<DiagramNodeData, 'diagramNode'>[]; edges: Edge<{ type: string }, 'diagramEdge'>[] }> {
   const elkGraph: ElkNode = {
     id: 'root',
-    layoutOptions: layoutOptionsByAlgorithm[algorithm],
+    layoutOptions: buildLayoutOptions(algorithm, direction),
     children: diagram.nodes.map((node) => ({
       id: node.id,
       width: NODE_WIDTH,
