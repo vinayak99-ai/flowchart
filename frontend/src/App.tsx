@@ -6,8 +6,9 @@ import { SpecBuilderPanel } from './components/SpecBuilderPanel'
 import { Sidebar } from './components/Sidebar'
 import { SequenceSidebar } from './components/SequenceSidebar'
 import { FlowchartCanvas, type FlowchartCanvasHandle } from './components/FlowchartCanvas'
-import { SequenceCanvas } from './components/SequenceCanvas'
+import { SequenceCanvas, type SequenceCanvasHandle } from './components/SequenceCanvas'
 import { ExportControls } from './components/ExportControls'
+import { SequenceExportControls } from './components/SequenceExportControls'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { LayoutAlgorithm, LayoutDirection } from './lib/elkLayout'
 import type { EdgeShape } from './lib/theme'
@@ -26,6 +27,7 @@ function App() {
   const [themeName, setThemeName] = useState<ThemeName>('fidelity-green')
   const [snapToGrid, setSnapToGrid] = useState(false)
   const canvasRef = useRef<FlowchartCanvasHandle>(null)
+  const sequenceCanvasRef = useRef<SequenceCanvasHandle>(null)
   const flowchartRootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -101,9 +103,10 @@ function App() {
           <main className="flex min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2">
               <h1 className="text-sm font-semibold text-neutral-900">Sequence Diagram</h1>
+              <SequenceExportControls targetRef={sequenceCanvasRef} disabled={!sequenceResult} />
             </div>
             <div className="min-h-0 flex-1">
-              <SequenceCanvas diagram={sequenceResult?.diagram ?? null} themeName={themeName} />
+              <SequenceCanvas ref={sequenceCanvasRef} diagram={sequenceResult?.diagram ?? null} themeName={themeName} />
             </div>
           </main>
         </div>
