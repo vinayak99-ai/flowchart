@@ -29,6 +29,18 @@ export function SpecIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function SequenceIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
+      <rect x="4" y="3" width="6" height="3.5" rx="1" />
+      <rect x="14" y="3" width="6" height="3.5" rx="1" />
+      <path d="M7 6.5V20M17 6.5V20" strokeDasharray="1.5 2" />
+      <path d="M7 10h10M17 10l-3-2.2M17 10l-3 2.2" />
+      <path d="M17 15H7M7 15l3-2.2M7 15l3 2.2" />
+    </svg>
+  )
+}
+
 export function DataIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>

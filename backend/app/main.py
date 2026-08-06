@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.routes.generate import router as generate_router
+from app.routes.sequence import router as sequence_router
 from app.pm_portal_app import pm_portal_app
 
 settings = get_settings()
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 
 app.include_router(generate_router)
+app.include_router(sequence_router)
 
 # Spec Builder's own FastAPI app, routed at /pm/* -- e.g. /pm/projects. It
 # keeps its own CORS middleware (pm-portal/backend/main.py), which already

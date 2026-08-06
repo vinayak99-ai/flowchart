@@ -4,7 +4,9 @@ import { TopBar } from './components/TopBar'
 import { ComingSoonPanel } from './components/ComingSoonPanel'
 import { SpecBuilderPanel } from './components/SpecBuilderPanel'
 import { Sidebar } from './components/Sidebar'
+import { SequenceSidebar } from './components/SequenceSidebar'
 import { FlowchartCanvas, type FlowchartCanvasHandle } from './components/FlowchartCanvas'
+import { SequenceCanvas } from './components/SequenceCanvas'
 import { ExportControls } from './components/ExportControls'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { LayoutAlgorithm, LayoutDirection } from './lib/elkLayout'
@@ -12,10 +14,12 @@ import type { EdgeShape } from './lib/theme'
 import { applyTheme, type ThemeName } from './lib/themes'
 import { TOOLS, type ToolId } from './lib/tools'
 import type { GenerateResponse } from './types'
+import type { GenerateSequenceResponse } from './sequenceTypes'
 
 function App() {
   const [activeTool, setActiveTool] = useState<ToolId>('flowchart')
   const [result, setResult] = useState<GenerateResponse | null>(null)
+  const [sequenceResult, setSequenceResult] = useState<GenerateSequenceResponse | null>(null)
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('layered')
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('DOWN')
   const [edgeShape, setEdgeShape] = useState<EdgeShape>('bezier')
@@ -83,6 +87,23 @@ function App() {
                 themeName={themeName}
                 snapToGrid={snapToGrid}
               />
+            </div>
+          </main>
+        </div>
+
+        {/* Sequence diagrams don't share FlowchartCanvas's ELK/edge-shape
+            machinery (no layout algorithm, no ELK-routed edge shapes -- see
+            sequenceLayout.ts), so this is its own canvas + sidebar pair
+            rather than reusing Flowchart Builder's, but the same
+            always-mounted+hidden pattern keeps its state across tool switches. */}
+        <div className={`min-h-0 flex-1 ${activeTool === 'sequence' ? 'flex' : 'hidden'}`}>
+          <SequenceSidebar onResult={setSequenceResult} issues={sequenceResult?.issues ?? []} />
+          <main className="flex min-w-0 flex-1 flex-col">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-2">
+              <h1 className="text-sm font-semibold text-neutral-900">Sequence Diagram</h1>
+            </div>
+            <div className="min-h-0 flex-1">
+              <SequenceCanvas diagram={sequenceResult?.diagram ?? null} themeName={themeName} />
             </div>
           </main>
         </div>
