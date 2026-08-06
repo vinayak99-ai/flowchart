@@ -71,6 +71,11 @@ export function MessageEdge({
                   ? `translate(0, -50%) translate(${labelX}px, ${labelY}px)`
                   : `translate(-50%, -100%) translate(${labelX}px, ${labelY - 6}px)`,
               pointerEvents: 'all',
+              // A message landing right where a new activation bar opens
+              // (rendered inside the lifeline node) would otherwise have
+              // its own label clipped underneath that opaque background --
+              // nodes render above the edge layer by default.
+              zIndex: 10,
             }}
           >
             {data ? (
