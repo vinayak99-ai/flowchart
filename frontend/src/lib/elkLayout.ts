@@ -2,11 +2,15 @@ import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js'
 import type { Edge, Node } from '@xyflow/react'
 import type { DiagramEdge, DiagramNode, FlowchartDiagram } from '../types'
 import { routeEdgesOnGrid } from './gridRouter'
+import { measureNodeSize, BASE_HEIGHT } from './nodeSizing'
 
 const elk = new ELK()
 
+// Fallback size only — actual node dimensions are measured per-label in
+// measureNodeSize() so a box fits its content instead of every node getting
+// an identical fixed size regardless of label length.
 export const NODE_WIDTH = 200
-export const NODE_HEIGHT = 72
+export const NODE_HEIGHT = BASE_HEIGHT
 
 // 16:9 — matches the PPTX slide aspect ratio, so a rectpacking layout is already
 // slide-shaped before export ever touches it.
@@ -65,6 +69,8 @@ function buildLayoutOptions(algorithm: LayoutAlgorithm, direction: LayoutDirecti
 export type DiagramNodeData = DiagramNode & {
   groupLabel?: string
   handleDirection?: LayoutDirection
+  width?: number
+  height?: number
 } & Record<string, unknown>
 
 export interface Waypoint {
@@ -79,14 +85,19 @@ export async function layoutDiagram(
   algorithm: LayoutAlgorithm = 'layered',
   direction: LayoutDirection = 'DOWN',
 ): Promise<{ nodes: Node<DiagramNodeData, 'diagramNode'>[]; edges: Edge<DiagramEdgeData, 'diagramEdge'>[] }> {
+  const sizesById = new Map(diagram.nodes.map((node) => [node.id, measureNodeSize(node.label, node.type)]))
+
   const elkGraph: ElkNode = {
     id: 'root',
     layoutOptions: buildLayoutOptions(algorithm, direction),
-    children: diagram.nodes.map((node) => ({
-      id: node.id,
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
-    })),
+    children: diagram.nodes.map((node) => {
+      const size = sizesById.get(node.id)!
+      return {
+        id: node.id,
+        width: size.width,
+        height: size.height,
+      }
+    }),
     edges: diagram.edges.map((edge) => ({
       id: edge.id,
       sources: [edge.source],
@@ -106,11 +117,16 @@ export async function layoutDiagram(
   const nodes: Node<DiagramNodeData, 'diagramNode'>[] = (result.children ?? []).map((child) => {
     const diagramNode = nodesById.get(child.id)!
     const groupLabel = diagramNode.group_id ? groupsById.get(diagramNode.group_id)?.label : undefined
+    const size = sizesById.get(child.id)!
     return {
       id: child.id,
       type: 'diagramNode',
       position: { x: child.x ?? 0, y: child.y ?? 0 },
-      data: { ...diagramNode, groupLabel, handleDirection },
+      // Top-level width/height so React Flow's own viewport/fitView math is
+      // correct immediately, not just after the DOM node is first measured.
+      width: size.width,
+      height: size.height,
+      data: { ...diagramNode, groupLabel, handleDirection, width: size.width, height: size.height },
       draggable: true,
     }
   })

@@ -56,11 +56,14 @@ export interface EdgeStyle {
 }
 
 // Edge colors come from the active palette (not a static Tailwind class) because
-// they're passed as raw SVG stroke props, not className.
+// they're passed as raw SVG stroke props, not className. Default edges are
+// drawn slightly heavier than conditional branches so the main path reads as
+// the primary flow and branches read as secondary, instead of every line
+// competing at the same visual weight.
 export function getEdgeTheme(palette: DiagramPalette): Record<EdgeType, EdgeStyle> {
   return {
-    default: { stroke: palette.neutral600, strokeWidth: 1.5 },
-    conditional: { stroke: palette.accent, strokeWidth: 1.5, strokeDasharray: '4 3' },
+    default: { stroke: palette.neutral600, strokeWidth: 1.6 },
+    conditional: { stroke: palette.accent, strokeWidth: 1.25, strokeDasharray: '5 3.5' },
   }
 }
 

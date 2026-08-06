@@ -76,8 +76,13 @@ export function DiagramEdgeComponent({
       {label ? (
         <EdgeLabelRenderer>
           <div
-            className="absolute rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-neutral-900 shadow-sm"
+            // No border/shadow chip -- with many conditional branches, a bordered
+            // box per label reads as clutter competing with the actual node boxes.
+            // Color-matching the text to the edge's own stroke ties a label to its
+            // line without needing a container to do that job.
+            className="absolute rounded bg-white/85 px-1 py-0.5 text-[10px] font-semibold"
             style={{
+              color: style.stroke,
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
             }}

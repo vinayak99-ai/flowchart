@@ -115,10 +115,17 @@ export async function exportPptx(
   const contentW = SLIDE_WIDTH_IN - MARGIN_IN * 2
   const contentH = SLIDE_HEIGHT_IN - contentY - MARGIN_IN
 
+  // Each node is sized to fit its own label (lib/nodeSizing.ts) rather than
+  // a fixed box, so the deck has to read each node's actual width/height
+  // instead of assuming the old constant -- otherwise shapes on the slide
+  // wouldn't match what was on screen.
+  const nodeWidth = (node: DiagramFlowNode) => node.data.width ?? node.width ?? NODE_WIDTH
+  const nodeHeight = (node: DiagramFlowNode) => node.data.height ?? node.height ?? NODE_HEIGHT
+
   const minX = Math.min(...nodes.map((node) => node.position.x))
   const minY = Math.min(...nodes.map((node) => node.position.y))
-  const maxX = Math.max(...nodes.map((node) => node.position.x + NODE_WIDTH))
-  const maxY = Math.max(...nodes.map((node) => node.position.y + NODE_HEIGHT))
+  const maxX = Math.max(...nodes.map((node) => node.position.x + nodeWidth(node)))
+  const maxY = Math.max(...nodes.map((node) => node.position.y + nodeHeight(node)))
   const layoutW = Math.max(maxX - minX, 1)
   const layoutH = Math.max(maxY - minY, 1)
 
@@ -131,8 +138,8 @@ export async function exportPptx(
     boxes.set(node.id, {
       x: offsetX + (node.position.x - minX) * scale,
       y: offsetY + (node.position.y - minY) * scale,
-      w: NODE_WIDTH * scale,
-      h: NODE_HEIGHT * scale,
+      w: nodeWidth(node) * scale,
+      h: nodeHeight(node) * scale,
     })
   }
 

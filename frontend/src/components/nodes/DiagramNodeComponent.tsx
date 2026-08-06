@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { nodeTheme } from '../../lib/theme'
-import type { DiagramNodeData } from '../../lib/elkLayout'
+import { NODE_WIDTH, NODE_HEIGHT, type DiagramNodeData } from '../../lib/elkLayout'
 
 export type DiagramFlowNode = Node<
   DiagramNodeData & { onLabelChange?: (id: string, label: string) => void },
@@ -75,14 +75,21 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
     </div>
   ) : null
 
+  // Sized per-label (see lib/nodeSizing.ts) instead of every node getting an
+  // identical fixed box regardless of how much text it holds.
+  const width = data.width ?? NODE_WIDTH
+  const height = data.height ?? NODE_HEIGHT
+  const boxStyle = { width, height }
+
   if (style.shape === 'diamond') {
     return (
-      <div className={`relative flex h-[72px] w-[200px] items-center justify-center ${selectedRing}`}>
+      <div className={`relative flex items-center justify-center ${selectedRing}`} style={boxStyle}>
         {groupTag}
         <div
-          className={`absolute left-1/2 top-1/2 h-[62px] w-[62px] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm ${style.container}`}
+          className={`absolute inset-0 ${style.container}`}
+          style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}
         />
-        <div className="relative flex h-full w-full items-center justify-center">{labelContent}</div>
+        <div className="relative flex h-full w-full items-center justify-center px-7">{labelContent}</div>
         {handles}
       </div>
     )
@@ -90,7 +97,7 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
 
   if (style.shape === 'parallelogram') {
     return (
-      <div className={`relative flex h-[72px] w-[200px] items-center justify-center ${selectedRing}`}>
+      <div className={`relative flex items-center justify-center ${selectedRing}`} style={boxStyle}>
         {groupTag}
         <div className={`absolute inset-0 -skew-x-12 rounded-sm ${style.container}`} />
         <div className="relative flex h-full w-full items-center justify-center">{labelContent}</div>
@@ -102,7 +109,8 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
   if (style.shape === 'subprocess') {
     return (
       <div
-        className={`relative flex h-[72px] w-[200px] items-center justify-center rounded-md ${style.container} ${selectedRing}`}
+        className={`relative flex items-center justify-center rounded-lg ${style.container} ${selectedRing}`}
+        style={boxStyle}
       >
         {groupTag}
         <div className="pointer-events-none absolute inset-y-0 left-1.5 w-px bg-neutral-600" />
@@ -113,11 +121,12 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
     )
   }
 
-  const roundedClass = style.shape === 'pill' ? 'rounded-full' : 'rounded-lg'
+  const roundedClass = style.shape === 'pill' ? 'rounded-full' : 'rounded-xl'
 
   return (
     <div
-      className={`relative flex h-[72px] w-[200px] items-center justify-center ${roundedClass} ${style.container} ${selectedRing}`}
+      className={`relative flex items-center justify-center ${roundedClass} ${style.container} ${selectedRing}`}
+      style={boxStyle}
     >
       {groupTag}
       {labelContent}
