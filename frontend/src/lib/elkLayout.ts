@@ -55,7 +55,10 @@ function buildLayoutOptions(algorithm: LayoutAlgorithm, direction: LayoutDirecti
   }
 }
 
-export type DiagramNodeData = DiagramNode & { groupLabel?: string } & Record<string, unknown>
+export type DiagramNodeData = DiagramNode & {
+  groupLabel?: string
+  handleDirection?: LayoutDirection
+} & Record<string, unknown>
 
 export interface Waypoint {
   x: number
@@ -88,6 +91,11 @@ export async function layoutDiagram(
   const nodesById = new Map(diagram.nodes.map((node) => [node.id, node]))
   const groupsById = new Map(diagram.groups.map((group) => [group.id, group]))
 
+  // Rectpacking has no real "flow" direction (it's a packed grid, not a
+  // chain), so its nodes keep the default top/bottom handles rather than
+  // rotating to match whatever direction was last selected on another algorithm.
+  const handleDirection = DIRECTION_SUPPORTED[algorithm] ? direction : undefined
+
   const nodes: Node<DiagramNodeData, 'diagramNode'>[] = (result.children ?? []).map((child) => {
     const diagramNode = nodesById.get(child.id)!
     const groupLabel = diagramNode.group_id ? groupsById.get(diagramNode.group_id)?.label : undefined
@@ -95,7 +103,7 @@ export async function layoutDiagram(
       id: child.id,
       type: 'diagramNode',
       position: { x: child.x ?? 0, y: child.y ?? 0 },
-      data: { ...diagramNode, groupLabel },
+      data: { ...diagramNode, groupLabel, handleDirection },
       draggable: true,
     }
   })

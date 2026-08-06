@@ -50,10 +50,22 @@ export function DiagramNodeComponent({ id, data, selected }: NodeProps<DiagramFl
     </span>
   )
 
+  // Horizontal layouts (direction RIGHT) connect nodes left-to-right, so
+  // handles need to sit on the left/right edges — fixed top/bottom handles
+  // would force every edge into an S-curve to reach the next node sideways.
+  const isHorizontal = data.handleDirection === 'RIGHT'
   const handles = (
     <>
-      <Handle type="target" position={Position.Top} className="!bg-neutral-600" />
-      <Handle type="source" position={Position.Bottom} className="!bg-neutral-600" />
+      <Handle
+        type="target"
+        position={isHorizontal ? Position.Left : Position.Top}
+        className="!bg-neutral-600"
+      />
+      <Handle
+        type="source"
+        position={isHorizontal ? Position.Right : Position.Bottom}
+        className="!bg-neutral-600"
+      />
     </>
   )
 
