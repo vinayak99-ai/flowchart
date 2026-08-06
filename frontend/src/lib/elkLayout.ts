@@ -12,14 +12,18 @@ const elk = new ELK()
 export const NODE_WIDTH = 200
 export const NODE_HEIGHT = BASE_HEIGHT
 
-// 16:9 — matches the PPTX slide aspect ratio, so a rectpacking layout is already
+// 16:9 — matches the PPTX slide aspect ratio, so the compact layout is already
 // slide-shaped before export ever touches it.
 const SLIDE_ASPECT_RATIO = '1.7778'
 
 export type LayoutAlgorithm = 'layered' | 'mrtree' | 'rectpacking'
 export type LayoutDirection = 'DOWN' | 'RIGHT'
 
-// rectpacking has no notion of direction — it packs for a target aspect ratio instead.
+// "Compact" (the 'rectpacking' id, kept for backwards compatibility with the
+// UI/export code that key off it) is pinned to a left-to-right flow instead
+// of exposing a direction toggle -- it always wraps a single flow-ordered
+// chain into rows, so "direction" isn't a free choice the way it is for
+// layered/mrtree.
 export const DIRECTION_SUPPORTED: Record<LayoutAlgorithm, boolean> = {
   layered: true,
   mrtree: true,
@@ -51,17 +55,30 @@ function buildLayoutOptions(algorithm: LayoutAlgorithm, direction: LayoutDirecti
         'elk.edgeRouting': 'ORTHOGONAL',
       }
     case 'rectpacking':
+      // Deliberately NOT the ELK 'rectpacking' algorithm: rectpacking is a
+      // pure bin-packer that sorts nodes by size to fill the target aspect
+      // ratio densely, completely ignoring which nodes are actually
+      // connected. That's what produced long, winding edges crossing half
+      // the diagram to reach a node the graph put right next to it.
+      // 'layered' + row-wrapping instead lays nodes out in real flow order
+      // (same as the "Flowchart" option) and only wraps that single chain
+      // into rows once it gets too wide for the target aspect ratio, so
+      // connected nodes stay adjacent -- short edges, like the canonical
+      // shapes -- while still landing on a compact, slide-shaped canvas.
+      // Bonus: unlike rectpacking, layered always computes real routed
+      // edge sections, so this path no longer needs the gridRouter fallback.
       return {
-        'elk.algorithm': 'rectpacking',
+        'elk.algorithm': 'layered',
+        'elk.direction': 'RIGHT',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '50',
+        'elk.spacing.nodeNode': '32',
+        'elk.spacing.edgeNode': '20',
+        'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+        'elk.edgeRouting': 'ORTHOGONAL',
+        'elk.layered.wrapping.strategy': 'MULTI_EDGE',
         'elk.aspectRatio': SLIDE_ASPECT_RATIO,
-        // Wider than the other algorithms' node-node spacing on purpose: ELK
-        // never routes edges for rectpacking at all (see gridRouter.ts), so
-        // our own router has to fit real lanes for many edges through the
-        // gutter between packed rows -- 32px left ~20px of free space after
-        // margins, not enough room to visually separate edges that share a
-        // row-to-row crossing.
-        'elk.spacing.nodeNode': '48',
-        'elk.contentAlignment': 'V_CENTER H_CENTER',
+        'elk.layered.wrapping.additionalEdgeSpacing': '20',
+        'elk.layered.wrapping.correctionFactor': '1',
       }
   }
 }
@@ -109,10 +126,11 @@ export async function layoutDiagram(
   const nodesById = new Map(diagram.nodes.map((node) => [node.id, node]))
   const groupsById = new Map(diagram.groups.map((group) => [group.id, group]))
 
-  // Rectpacking has no real "flow" direction (it's a packed grid, not a
-  // chain), so its nodes keep the default top/bottom handles rather than
-  // rotating to match whatever direction was last selected on another algorithm.
-  const handleDirection = DIRECTION_SUPPORTED[algorithm] ? direction : undefined
+  // Compact is pinned to a left-to-right flow (see buildLayoutOptions), so
+  // its nodes always get left/right handles regardless of whatever direction
+  // was last selected on layered/mrtree.
+  const handleDirection: LayoutDirection | undefined =
+    algorithm === 'rectpacking' ? 'RIGHT' : DIRECTION_SUPPORTED[algorithm] ? direction : undefined
 
   const nodes: Node<DiagramNodeData, 'diagramNode'>[] = (result.children ?? []).map((child) => {
     const diagramNode = nodesById.get(child.id)!

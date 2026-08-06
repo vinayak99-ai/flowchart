@@ -14,8 +14,8 @@ interface RoutableEdge {
   target: string
 }
 
-// Rectpacking packs nodes with only elk.spacing.nodeNode (32px) between them,
-// so CELL/NODE_MARGIN have to leave a comfortably resolvable gap: 32 - 2*6 =
+// Tuned for tightly packed layouts with as little as ~32px between nodes, so
+// CELL/NODE_MARGIN have to leave a comfortably resolvable gap: 32 - 2*6 =
 // 20px of free space at 4px resolution (5 cells), not lost to grid rounding
 // the way an 8px cell with a 10px margin was (see gridRouter fix history --
 // that combination left zero free rows between adjacent packed rows).
@@ -30,13 +30,15 @@ const TURN_PENALTY = 4
 const CONGESTION_PENALTY = 40
 
 /**
- * Fallback edge router for layout algorithms ELK doesn't compute routing
- * for at all (rectpacking never returns edge sections, regardless of the
- * elk.edgeRouting option -- verified directly against elkjs). Routes edges
- * orthogonally through free space on a coarse grid, treating node boxes as
- * obstacles and cells used by earlier edges as a soft penalty so edges that
- * would otherwise overlap spread into separate lanes instead of drawing on
- * top of each other.
+ * Fallback edge router for any layout algorithm ELK doesn't compute routing
+ * for at all -- ELK's pure `rectpacking` algorithm never returns edge
+ * sections regardless of the elk.edgeRouting option (verified directly
+ * against elkjs), which is why the app's "Compact" layout no longer uses it
+ * (see elkLayout.ts's buildLayoutOptions). Kept as a safety net for any
+ * future algorithm with the same gap. Routes edges orthogonally through
+ * free space on a coarse grid, treating node boxes as obstacles and cells
+ * used by earlier edges as a soft penalty so edges that would otherwise
+ * overlap spread into separate lanes instead of drawing on top of each other.
  */
 export function routeEdgesOnGrid(
   nodes: RoutableNode[],
