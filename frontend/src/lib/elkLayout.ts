@@ -95,7 +95,22 @@ export interface Waypoint {
   y: number
 }
 
-export type DiagramEdgeData = { type: string; waypoints?: Waypoint[] }
+export interface Box {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type DiagramEdgeData = {
+  type: string
+  waypoints?: Waypoint[]
+  // Every node's box, so a label can be kept clear of any node it passes
+  // near -- not just its own source/target. A long routed edge (e.g. a
+  // row-wrap transition in Compact) can run right alongside an unrelated
+  // node the label would otherwise land on top of.
+  nodeBoxes?: Box[]
+}
 
 export async function layoutDiagram(
   diagram: FlowchartDiagram,
@@ -182,13 +197,28 @@ export async function layoutDiagram(
     for (const [id, points] of gridRoutes) routesById.set(id, points)
   }
 
+  // So the edge label can be kept clear of every node's actual box (nothing
+  // else knows their real position/size -- the label chip is positioned
+  // independently of ELK's own layout and routing math). One shared array,
+  // not recomputed per edge.
+  const nodeBoxes: Box[] = (result.children ?? []).map((child) => ({
+    x: child.x ?? 0,
+    y: child.y ?? 0,
+    width: child.width ?? NODE_WIDTH,
+    height: child.height ?? NODE_HEIGHT,
+  }))
+
   const edges: Edge<DiagramEdgeData, 'diagramEdge'>[] = diagram.edges.map((edge: DiagramEdge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
     label: edge.label ?? undefined,
     type: 'diagramEdge',
-    data: { type: edge.type, waypoints: routesById.get(edge.id) },
+    data: {
+      type: edge.type,
+      waypoints: routesById.get(edge.id),
+      nodeBoxes,
+    },
   }))
 
   return { nodes, edges }

@@ -10,11 +10,17 @@ import {
 import { getEdgeTheme, type EdgeShape } from '../../lib/theme'
 import { themePalettes, type ThemeName } from '../../lib/themes'
 import type { EdgeType } from '../../types'
-import type { Waypoint } from '../../lib/elkLayout'
-import { buildRoutedPath } from '../../lib/edgeRouting'
+import type { Box, Waypoint } from '../../lib/elkLayout'
+import { buildRoutedPath, clampLabelToBoxes } from '../../lib/edgeRouting'
 
 export type DiagramFlowEdge = Edge<
-  { type: EdgeType; edgeShape?: EdgeShape; themeName?: ThemeName; waypoints?: Waypoint[] },
+  {
+    type: EdgeType
+    edgeShape?: EdgeShape
+    themeName?: ThemeName
+    waypoints?: Waypoint[]
+    nodeBoxes?: Box[]
+  },
   'diagramEdge'
 >
 
@@ -46,10 +52,11 @@ export function DiagramEdgeComponent({
           targetX,
           targetY,
           rounded: shape === 'bezier' || shape === 'smoothstep',
+          nodeBoxes: data?.nodeBoxes,
         })
       : null
 
-  const [edgePath, labelX, labelY] =
+  const [edgePath, routedLabelX, routedLabelY] =
     routed ??
     (shape === 'straight'
       ? getStraightPath(pathParams)
@@ -58,6 +65,14 @@ export function DiagramEdgeComponent({
         : shape === 'smoothstep'
           ? getSmoothStepPath(pathParams)
           : getBezierPath(pathParams))
+
+  // buildRoutedPath already searched for a box-clear point when `routed` is
+  // set. React Flow's own path helpers (used for a direct, bend-free edge)
+  // have no such awareness, so their raw midpoint still needs the same
+  // clamp against the real node boxes.
+  const [labelX, labelY] = routed
+    ? [routedLabelX, routedLabelY]
+    : clampLabelToBoxes(routedLabelX, routedLabelY, sourceX, sourceY, targetX, targetY, data?.nodeBoxes)
 
   const palette = themePalettes[data?.themeName ?? 'fidelity-green']
   const style = getEdgeTheme(palette)[data?.type ?? 'default']
