@@ -79,12 +79,14 @@ export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvas
     }, [diagram, layoutAlgorithm, layoutDirection])
 
     // Restyle pass — edge shape/theme are just rendering choices, no need to re-run elk.
+    // Keeps the routed waypoints from the layout pass so switching edge style
+    // doesn't fall back to a naive straight line through other nodes.
     useEffect(() => {
       setEdges(
         (current) =>
           current.map((edge) => ({
             ...edge,
-            data: { type: edge.data?.type ?? 'default', edgeShape, themeName },
+            data: { type: edge.data?.type ?? 'default', waypoints: edge.data?.waypoints, edgeShape, themeName },
           })) as DiagramFlowEdge[],
       )
     }, [edgeShape, themeName, setEdges])
