@@ -1,6 +1,7 @@
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js'
 import type { Edge, Node } from '@xyflow/react'
 import type { DiagramEdge, DiagramNode, FlowchartDiagram } from '../types'
+import { routeEdgesOnGrid } from './gridRouter'
 
 const elk = new ELK()
 
@@ -49,7 +50,13 @@ function buildLayoutOptions(algorithm: LayoutAlgorithm, direction: LayoutDirecti
       return {
         'elk.algorithm': 'rectpacking',
         'elk.aspectRatio': SLIDE_ASPECT_RATIO,
-        'elk.spacing.nodeNode': '32',
+        // Wider than the other algorithms' node-node spacing on purpose: ELK
+        // never routes edges for rectpacking at all (see gridRouter.ts), so
+        // our own router has to fit real lanes for many edges through the
+        // gutter between packed rows -- 32px left ~20px of free space after
+        // margins, not enough room to visually separate edges that share a
+        // row-to-row crossing.
+        'elk.spacing.nodeNode': '48',
         'elk.contentAlignment': 'V_CENTER H_CENTER',
       }
   }
@@ -122,6 +129,23 @@ export async function layoutDiagram(
       section.endPoint,
     ]
     routesById.set(elkEdge.id, points)
+  }
+
+  // rectpacking (and potentially other future algorithms) never populates
+  // edge sections at all -- verified directly against elkjs, not just this
+  // graph -- regardless of elk.edgeRouting. Route those ourselves on a grid
+  // so they still avoid node boxes instead of silently falling back to a
+  // naive point-to-point line.
+  if (routesById.size === 0 && (result.edges?.length ?? 0) > 0) {
+    const routableNodes = (result.children ?? []).map((child) => ({
+      id: child.id,
+      x: child.x ?? 0,
+      y: child.y ?? 0,
+      width: child.width ?? NODE_WIDTH,
+      height: child.height ?? NODE_HEIGHT,
+    }))
+    const gridRoutes = routeEdgesOnGrid(routableNodes, diagram.edges)
+    for (const [id, points] of gridRoutes) routesById.set(id, points)
   }
 
   const edges: Edge<DiagramEdgeData, 'diagramEdge'>[] = diagram.edges.map((edge: DiagramEdge) => ({
