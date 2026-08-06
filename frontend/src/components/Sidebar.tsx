@@ -3,7 +3,7 @@ import { extractFile, openGenerateSocket } from '../lib/api'
 import type { GenerateResponse, ValidationIssue, WsProgressMessage } from '../types'
 import { IssuesPanel } from './IssuesPanel'
 
-type Status = 'idle' | 'calling_llm' | 'validating' | 'done' | 'error'
+type Status = 'idle' | 'classifying' | 'calling_llm' | 'validating' | 'done' | 'error'
 
 interface SidebarProps {
   onResult: (result: GenerateResponse) => void
@@ -12,6 +12,7 @@ interface SidebarProps {
 
 const STATUS_LABEL: Record<Status, string> = {
   idle: '',
+  classifying: 'Choosing a diagram shape…',
   calling_llm: 'Calling OpenAI…',
   validating: 'Validating structure…',
   done: 'Flowchart ready.',
@@ -55,11 +56,15 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
     }
 
     setErrorMessage(null)
-    setStatus('calling_llm')
+    setStatus('classifying')
     closeSocketRef.current?.()
 
     const onMessage = (message: WsProgressMessage) => {
-      if (message.stage === 'calling_llm' || message.stage === 'validating') {
+      if (
+        message.stage === 'classifying' ||
+        message.stage === 'calling_llm' ||
+        message.stage === 'validating'
+      ) {
         setStatus(message.stage)
       } else if (message.stage === 'done') {
         setStatus('done')
@@ -78,7 +83,8 @@ export function Sidebar({ onResult, issues }: SidebarProps) {
     closeSocketRef.current = openGenerateSocket(material, prompt, onMessage, onError)
   }, [material, prompt, onResult])
 
-  const isGenerating = status === 'calling_llm' || status === 'validating'
+  const isGenerating =
+    status === 'classifying' || status === 'calling_llm' || status === 'validating'
 
   return (
     <aside className="flex h-full w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-neutral-200 bg-white p-4">

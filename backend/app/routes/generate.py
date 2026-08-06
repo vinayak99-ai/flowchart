@@ -3,7 +3,7 @@ from openai import OpenAIError
 from pydantic import ValidationError
 
 from app.extraction import extract_text
-from app.llm import generate_diagram
+from app.llm import classify_archetype, generate_diagram
 from app.models import ExtractResponse, GenerateRequest, GenerateResponse
 from app.validation import validate_diagram
 
@@ -24,12 +24,15 @@ async def extract(file: UploadFile) -> ExtractResponse:
 @router.post("/generate", response_model=GenerateResponse)
 async def generate(request: GenerateRequest) -> GenerateResponse:
     try:
-        diagram = await generate_diagram(request.material, request.prompt)
+        classification = await classify_archetype(request.material, request.prompt)
+        diagram = await generate_diagram(
+            request.material, request.prompt, archetype=classification.archetype
+        )
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=f"OpenAI request failed: {exc}") from exc
 
-    issues = validate_diagram(diagram)
-    return GenerateResponse(diagram=diagram, issues=issues)
+    issues = validate_diagram(diagram, archetype=classification.archetype)
+    return GenerateResponse(diagram=diagram, issues=issues, archetype=classification.archetype)
 
 
 @router.websocket("/ws/generate")
@@ -44,9 +47,20 @@ async def generate_ws(websocket: WebSocket) -> None:
                 await websocket.send_json({"stage": "error", "message": str(exc)})
                 continue
 
+            await websocket.send_json({"stage": "classifying"})
+            try:
+                classification = await classify_archetype(request.material, request.prompt)
+            except OpenAIError as exc:
+                await websocket.send_json(
+                    {"stage": "error", "message": f"OpenAI request failed: {exc}"}
+                )
+                continue
+
             await websocket.send_json({"stage": "calling_llm"})
             try:
-                diagram = await generate_diagram(request.material, request.prompt)
+                diagram = await generate_diagram(
+                    request.material, request.prompt, archetype=classification.archetype
+                )
             except OpenAIError as exc:
                 await websocket.send_json(
                     {"stage": "error", "message": f"OpenAI request failed: {exc}"}
@@ -54,9 +68,11 @@ async def generate_ws(websocket: WebSocket) -> None:
                 continue
 
             await websocket.send_json({"stage": "validating"})
-            issues = validate_diagram(diagram)
+            issues = validate_diagram(diagram, archetype=classification.archetype)
 
-            response = GenerateResponse(diagram=diagram, issues=issues)
+            response = GenerateResponse(
+                diagram=diagram, issues=issues, archetype=classification.archetype
+            )
             await websocket.send_json({"stage": "done", "result": response.model_dump()})
     except WebSocketDisconnect:
         return

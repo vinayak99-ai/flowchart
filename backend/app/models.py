@@ -2,6 +2,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.archetypes import ArchetypeId
+
 
 class NodeType(str, Enum):
     start = "start"
@@ -64,6 +66,7 @@ class GenerateRequest(BaseModel):
 class GenerateResponse(BaseModel):
     diagram: FlowchartDiagram
     issues: list[ValidationIssue] = Field(default_factory=list)
+    archetype: ArchetypeId | None = None
 
 
 class ExtractResponse(BaseModel):

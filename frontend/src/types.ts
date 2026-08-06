@@ -37,9 +37,18 @@ export interface ValidationIssue {
   edge_id?: string | null
 }
 
+export type ArchetypeId =
+  | 'linear'
+  | 'approval_gate'
+  | 'validation_retry'
+  | 'routing_decision'
+  | 'fork_join'
+  | 'custom'
+
 export interface GenerateResponse {
   diagram: FlowchartDiagram
   issues: ValidationIssue[]
+  archetype?: ArchetypeId | null
 }
 
 export interface ExtractResponse {
@@ -48,6 +57,7 @@ export interface ExtractResponse {
 }
 
 export type WsProgressMessage =
+  | { stage: 'classifying' }
   | { stage: 'calling_llm' }
   | { stage: 'validating' }
   | { stage: 'done'; result: GenerateResponse }

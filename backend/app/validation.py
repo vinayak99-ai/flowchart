@@ -1,9 +1,80 @@
 import networkx as nx
 
-from app.models import FlowchartDiagram, ValidationIssue, ValidationSeverity
+from app.archetypes import ArchetypeId
+from app.models import FlowchartDiagram, NodeType, ValidationIssue, ValidationSeverity
 
 
-def validate_diagram(diagram: FlowchartDiagram) -> list[ValidationIssue]:
+def _check_archetype_conformance(
+    diagram: FlowchartDiagram, graph: nx.DiGraph, archetype: ArchetypeId
+) -> list[ValidationIssue]:
+    if archetype == ArchetypeId.custom:
+        return []
+
+    issues: list[ValidationIssue] = []
+    decision_ids = [node.id for node in diagram.nodes if node.type == NodeType.decision]
+
+    def mismatch(message: str) -> ValidationIssue:
+        return ValidationIssue(
+            severity=ValidationSeverity.warning,
+            code="archetype_mismatch",
+            message=message,
+        )
+
+    if archetype == ArchetypeId.linear:
+        if decision_ids:
+            issues.append(
+                mismatch(
+                    "Expected a linear chain with no decision nodes, but found "
+                    f"{len(decision_ids)}."
+                )
+            )
+        branching = [n for n in graph.nodes if graph.out_degree(n) > 1]
+        if branching:
+            issues.append(mismatch("Expected a linear chain, but some steps branch."))
+
+    elif archetype == ArchetypeId.approval_gate:
+        if len(decision_ids) != 1:
+            issues.append(
+                mismatch(
+                    "Expected exactly one approval decision, but found "
+                    f"{len(decision_ids)}."
+                )
+            )
+        elif graph.out_degree(decision_ids[0]) != 2:
+            issues.append(
+                mismatch("Expected the approval decision to have exactly two branches.")
+            )
+
+    elif archetype == ArchetypeId.validation_retry:
+        if not decision_ids:
+            issues.append(mismatch("Expected a validation decision, but found none."))
+        elif not any(nx.simple_cycles(graph)):
+            issues.append(
+                mismatch("Expected a retry loop back to an earlier step, but found none.")
+            )
+
+    elif archetype == ArchetypeId.routing_decision:
+        if not decision_ids or not any(graph.out_degree(d) >= 3 for d in decision_ids):
+            issues.append(
+                mismatch(
+                    "Expected a decision fanning out into three or more paths, but found none."
+                )
+            )
+
+    elif archetype == ArchetypeId.fork_join:
+        has_fork = any(graph.out_degree(n) >= 2 for n in graph.nodes)
+        has_join = any(graph.in_degree(n) >= 2 for n in graph.nodes)
+        if not (has_fork and has_join):
+            issues.append(
+                mismatch("Expected parallel branches that fork and rejoin, but found none.")
+            )
+
+    return issues
+
+
+def validate_diagram(
+    diagram: FlowchartDiagram, archetype: ArchetypeId | None = None
+) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
 
     node_ids = [node.id for node in diagram.nodes]
@@ -83,5 +154,8 @@ def validate_diagram(diagram: FlowchartDiagram) -> list[ValidationIssue]:
                 message=f"Cycle detected among nodes: {' -> '.join(cycle)}.",
             )
         )
+
+    if archetype is not None:
+        issues.extend(_check_archetype_conformance(diagram, graph, archetype))
 
     return issues
