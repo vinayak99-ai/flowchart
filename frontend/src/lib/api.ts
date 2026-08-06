@@ -1,5 +1,6 @@
 import type { ExtractResponse, GenerateResponse, WsProgressMessage } from '../types'
 import type { SequenceWsProgressMessage } from '../sequenceTypes'
+import type { InfographicWheel, InfographicWsProgressMessage } from '../infographicTypes'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const WS_BASE = API_BASE.replace(/^http/, 'ws')
@@ -66,4 +67,47 @@ export function openSequenceGenerateSocket(
   }
 
   return () => socket.close()
+}
+
+export function openInfographicGenerateSocket(
+  material: string,
+  prompt: string,
+  onMessage: (message: InfographicWsProgressMessage) => void,
+  onError: () => void,
+): () => void {
+  const socket = new WebSocket(`${WS_BASE}/api/ws/generate-infographic`)
+
+  socket.onopen = () => {
+    socket.send(JSON.stringify({ material, prompt }))
+  }
+  socket.onmessage = (event) => {
+    onMessage(JSON.parse(event.data) as InfographicWsProgressMessage)
+  }
+  socket.onerror = () => {
+    onError()
+  }
+
+  return () => socket.close()
+}
+
+// The deliverable here is the actual .pptx file (the template, populated
+// server-side by python-pptx) -- not something rendered client-side, so
+// this fetches the binary and triggers a real download rather than parsing
+// a JSON diagram the way the other tools' export paths do.
+export async function exportWheelPptx(wheel: InfographicWheel): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/infographic/wheel/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(wheel),
+  })
+  if (!res.ok) {
+    throw new Error(await res.text())
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'infographic-wheel.pptx'
+  link.click()
+  URL.revokeObjectURL(url)
 }

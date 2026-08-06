@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from 'react'
-import { DataIcon, FlowchartIcon, ReportIcon, SequenceIcon, SpecIcon } from '../components/icons/ToolIcons'
+import { DataIcon, FlowchartIcon, InfographicIcon, ReportIcon, SequenceIcon, SpecIcon } from '../components/icons/ToolIcons'
 
-export type ToolId = 'flowchart' | 'sequence' | 'spec' | 'reports' | 'data'
+export type ToolId = 'flowchart' | 'sequence' | 'infographic' | 'spec' | 'reports' | 'data'
 
 export interface ToolDef {
   id: ToolId
@@ -24,6 +24,12 @@ export const TOOLS: ToolDef[] = [
     label: 'Sequence Diagram',
     status: 'ready',
     icon: SequenceIcon,
+  },
+  {
+    id: 'infographic',
+    label: 'Infographic Builder',
+    status: 'ready',
+    icon: InfographicIcon,
   },
   {
     id: 'spec',

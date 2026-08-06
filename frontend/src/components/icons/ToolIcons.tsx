@@ -41,6 +41,17 @@ export function SequenceIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function InfographicIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
+      <path d="M12 12 L12 3.5 A8.5 8.5 0 0 1 20 10.3 Z" />
+      <path d="M12 12 L20 10.3 A8.5 8.5 0 0 1 15.5 19.6 Z" />
+      <path d="M12 12 L15.5 19.6 A8.5 8.5 0 0 1 6 18.3 Z" />
+      <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none" opacity="0.15" />
+    </svg>
+  )
+}
+
 export function DataIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>

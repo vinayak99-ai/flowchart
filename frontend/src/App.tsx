@@ -7,6 +7,8 @@ import { Sidebar } from './components/Sidebar'
 import { SequenceSidebar } from './components/SequenceSidebar'
 import { FlowchartCanvas, type FlowchartCanvasHandle } from './components/FlowchartCanvas'
 import { SequenceCanvas, type SequenceCanvasHandle } from './components/SequenceCanvas'
+import { InfographicSidebar } from './components/InfographicSidebar'
+import { InfographicCanvas } from './components/InfographicCanvas'
 import { ExportControls } from './components/ExportControls'
 import { SequenceExportControls } from './components/SequenceExportControls'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -16,11 +18,13 @@ import { applyTheme, type ThemeName } from './lib/themes'
 import { TOOLS, type ToolId } from './lib/tools'
 import type { GenerateResponse } from './types'
 import type { GenerateSequenceResponse } from './sequenceTypes'
+import type { GenerateInfographicResponse } from './infographicTypes'
 
 function App() {
   const [activeTool, setActiveTool] = useState<ToolId>('flowchart')
   const [result, setResult] = useState<GenerateResponse | null>(null)
   const [sequenceResult, setSequenceResult] = useState<GenerateSequenceResponse | null>(null)
+  const [infographicResult, setInfographicResult] = useState<GenerateInfographicResponse | null>(null)
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('layered')
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('DOWN')
   const [edgeShape, setEdgeShape] = useState<EdgeShape>('bezier')
@@ -108,6 +112,17 @@ function App() {
             <div className="min-h-0 flex-1">
               <SequenceCanvas ref={sequenceCanvasRef} diagram={sequenceResult?.diagram ?? null} themeName={themeName} />
             </div>
+          </main>
+        </div>
+
+        {/* Populates a fixed .pptx template server-side (python-pptx) rather
+            than computing a layout client-side -- PowerPoint is the actual
+            renderer here, so the canvas below is a same-geometry preview,
+            not the deliverable itself (that's the downloaded file). */}
+        <div className={`min-h-0 flex-1 ${activeTool === 'infographic' ? 'flex' : 'hidden'}`}>
+          <InfographicSidebar onResult={setInfographicResult} issues={infographicResult?.issues ?? []} />
+          <main className="flex min-w-0 flex-1 flex-col">
+            <InfographicCanvas wheel={infographicResult?.diagram ?? null} />
           </main>
         </div>
 
