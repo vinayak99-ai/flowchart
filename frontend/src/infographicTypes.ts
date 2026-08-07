@@ -22,7 +22,46 @@ export interface InfographicComparison {
   columns: ComparisonColumn[]
 }
 
-export type InfographicDiagram = InfographicWheel | InfographicComparison
+export interface RoadmapColumn {
+  heading: string
+  items: string[]
+}
+
+export interface InfographicRoadmap {
+  template: 'now_next_later'
+  title: string
+  columns: RoadmapColumn[]
+}
+
+export interface PyramidPillar {
+  label: string
+  description: string
+}
+
+export interface InfographicPyramid {
+  template: 'vision_pyramid'
+  vision: string
+  pillars: PyramidPillar[]
+}
+
+export interface TimelineMilestone {
+  period: string
+  label: string
+  description: string
+}
+
+export interface InfographicTimeline {
+  template: 'quarterly_timeline'
+  title: string
+  milestones: TimelineMilestone[]
+}
+
+export type InfographicDiagram =
+  | InfographicWheel
+  | InfographicComparison
+  | InfographicRoadmap
+  | InfographicPyramid
+  | InfographicTimeline
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram

@@ -90,6 +90,14 @@ export function openInfographicGenerateSocket(
   return () => socket.close()
 }
 
+const INFOGRAPHIC_FILENAMES: Record<InfographicDiagram['template'], string> = {
+  radial_wheel: 'infographic-wheel.pptx',
+  comparison_columns: 'infographic-comparison.pptx',
+  now_next_later: 'infographic-roadmap.pptx',
+  vision_pyramid: 'infographic-vision-pyramid.pptx',
+  quarterly_timeline: 'infographic-timeline.pptx',
+}
+
 // The deliverable here is the actual .pptx file (the template, populated
 // server-side by python-pptx) -- not something rendered client-side, so
 // this fetches the binary and triggers a real download rather than parsing
@@ -109,8 +117,7 @@ export async function exportInfographicPptx(diagram: InfographicDiagram): Promis
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download =
-    diagram.template === 'radial_wheel' ? 'infographic-wheel.pptx' : 'infographic-comparison.pptx'
+  link.download = INFOGRAPHIC_FILENAMES[diagram.template]
   link.click()
   URL.revokeObjectURL(url)
 }

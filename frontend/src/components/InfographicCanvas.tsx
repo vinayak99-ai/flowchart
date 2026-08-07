@@ -3,6 +3,9 @@ import { exportInfographicPptx } from '../lib/api'
 import type { InfographicDiagram } from '../infographicTypes'
 import { WheelPreview } from './infographic/WheelPreview'
 import { ComparisonPreview } from './infographic/ComparisonPreview'
+import { RoadmapPreview } from './infographic/RoadmapPreview'
+import { PyramidPreview } from './infographic/PyramidPreview'
+import { TimelinePreview } from './infographic/TimelinePreview'
 
 interface InfographicCanvasProps {
   diagram: InfographicDiagram | null
@@ -11,6 +14,44 @@ interface InfographicCanvasProps {
 const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
   radial_wheel: 'Radial wheel',
   comparison_columns: 'Comparison columns',
+  now_next_later: 'Now/Next/Later roadmap',
+  vision_pyramid: 'Vision pyramid',
+  quarterly_timeline: 'Quarterly timeline',
+}
+
+function renderPreview(diagram: InfographicDiagram) {
+  switch (diagram.template) {
+    case 'radial_wheel':
+      return (
+        <div className="aspect-[31/30] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <WheelPreview wheel={diagram} />
+        </div>
+      )
+    case 'comparison_columns':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <ComparisonPreview comparison={diagram} />
+        </div>
+      )
+    case 'now_next_later':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <RoadmapPreview roadmap={diagram} />
+        </div>
+      )
+    case 'vision_pyramid':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <PyramidPreview pyramid={diagram} />
+        </div>
+      )
+    case 'quarterly_timeline':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <TimelinePreview timeline={diagram} />
+        </div>
+      )
+  }
 }
 
 export function InfographicCanvas({ diagram }: InfographicCanvasProps) {
@@ -47,17 +88,7 @@ export function InfographicCanvas({ diagram }: InfographicCanvasProps) {
         </button>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center bg-neutral-50 p-8">
-        {diagram ? (
-          diagram.template === 'radial_wheel' ? (
-            <div className="aspect-[31/30] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-lg">
-              <WheelPreview wheel={diagram} />
-            </div>
-          ) : (
-            <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-              <ComparisonPreview comparison={diagram} />
-            </div>
-          )
-        ) : (
+        {diagram ? renderPreview(diagram) : (
           <p className="text-sm text-neutral-500">Generate an infographic to see it here.</p>
         )}
       </div>

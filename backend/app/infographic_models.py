@@ -8,8 +8,20 @@ WHEEL_ITEM_COUNT = 5
 COMPARISON_MIN_COLUMNS = 2
 COMPARISON_MAX_COLUMNS = 4
 COMPARISON_POINT_COUNT = 4
+ROADMAP_COLUMN_COUNT = 3
+ROADMAP_ITEM_COUNT = 5
+PYRAMID_MIN_PILLARS = 3
+PYRAMID_MAX_PILLARS = 4
+TIMELINE_MIN_MILESTONES = 4
+TIMELINE_MAX_MILESTONES = 6
 
-InfographicTemplateId = Literal["radial_wheel", "comparison_columns"]
+InfographicTemplateId = Literal[
+    "radial_wheel",
+    "comparison_columns",
+    "now_next_later",
+    "vision_pyramid",
+    "quarterly_timeline",
+]
 
 
 class WheelItem(BaseModel):
@@ -34,11 +46,56 @@ class InfographicComparison(BaseModel):
     columns: list[ComparisonColumn] = Field(default_factory=list)
 
 
+class RoadmapColumn(BaseModel):
+    heading: str
+    items: list[str] = Field(default_factory=list)
+
+
+class InfographicRoadmap(BaseModel):
+    """A Now/Next/Later roadmap: 3 fixed time-horizon columns, closer-term
+    horizons rendered visually stronger than farther-out ones."""
+
+    template: Literal["now_next_later"] = "now_next_later"
+    title: str
+    columns: list[RoadmapColumn] = Field(default_factory=list)
+
+
+class PyramidPillar(BaseModel):
+    label: str
+    description: str
+
+
+class InfographicPyramid(BaseModel):
+    """A vision/strategy pyramid: one apex vision statement over 3-4
+    supporting pillar bands, widening toward the base."""
+
+    template: Literal["vision_pyramid"] = "vision_pyramid"
+    vision: str
+    pillars: list[PyramidPillar] = Field(default_factory=list)
+
+
+class TimelineMilestone(BaseModel):
+    period: str
+    label: str
+    description: str
+
+
+class InfographicTimeline(BaseModel):
+    template: Literal["quarterly_timeline"] = "quarterly_timeline"
+    title: str
+    milestones: list[TimelineMilestone] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
-# body) can be either shape without the caller needing to know which one
-# up front -- the classify step below is what picks it.
+# body) can be any of these shapes without the caller needing to know which
+# one up front -- the classify step is what picks it.
 InfographicDiagram = Annotated[
-    InfographicWheel | InfographicComparison, Field(discriminator="template")
+    InfographicWheel
+    | InfographicComparison
+    | InfographicRoadmap
+    | InfographicPyramid
+    | InfographicTimeline,
+    Field(discriminator="template"),
 ]
 
 
