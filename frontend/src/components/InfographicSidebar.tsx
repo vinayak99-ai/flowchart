@@ -4,7 +4,7 @@ import type { GenerateInfographicResponse, InfographicWsProgressMessage } from '
 import type { ValidationIssue } from '../types'
 import { IssuesPanel } from './IssuesPanel'
 
-type Status = 'idle' | 'calling_llm' | 'validating' | 'done' | 'error'
+type Status = 'idle' | 'classifying' | 'calling_llm' | 'validating' | 'done' | 'error'
 
 interface InfographicSidebarProps {
   onResult: (result: GenerateInfographicResponse) => void
@@ -13,6 +13,7 @@ interface InfographicSidebarProps {
 
 const STATUS_LABEL: Record<Status, string> = {
   idle: '',
+  classifying: 'Choosing a template…',
   calling_llm: 'Calling OpenAI…',
   validating: 'Validating structure…',
   done: 'Infographic ready.',
@@ -56,11 +57,15 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
     }
 
     setErrorMessage(null)
-    setStatus('calling_llm')
+    setStatus('classifying')
     closeSocketRef.current?.()
 
     const onMessage = (message: InfographicWsProgressMessage) => {
-      if (message.stage === 'calling_llm' || message.stage === 'validating') {
+      if (
+        message.stage === 'classifying' ||
+        message.stage === 'calling_llm' ||
+        message.stage === 'validating'
+      ) {
         setStatus(message.stage)
       } else if (message.stage === 'done') {
         setStatus('done')
@@ -79,7 +84,8 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
     closeSocketRef.current = openInfographicGenerateSocket(material, prompt, onMessage, onError)
   }, [material, prompt, onResult])
 
-  const isGenerating = status === 'calling_llm' || status === 'validating'
+  const isGenerating =
+    status === 'classifying' || status === 'calling_llm' || status === 'validating'
 
   return (
     <aside className="flex h-full w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-neutral-200 bg-white p-4">
@@ -140,7 +146,7 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder="e.g. Summarize this as a 5-stage product launch wheel."
+          placeholder="e.g. Turn this into an infographic. We'll pick a radial wheel or a side-by-side comparison based on what fits."
           className="mt-2 h-20 w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-primary"
         />
       </div>

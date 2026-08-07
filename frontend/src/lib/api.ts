@@ -1,6 +1,6 @@
 import type { ExtractResponse, GenerateResponse, WsProgressMessage } from '../types'
 import type { SequenceWsProgressMessage } from '../sequenceTypes'
-import type { InfographicWheel, InfographicWsProgressMessage } from '../infographicTypes'
+import type { InfographicDiagram, InfographicWsProgressMessage } from '../infographicTypes'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const WS_BASE = API_BASE.replace(/^http/, 'ws')
@@ -93,12 +93,14 @@ export function openInfographicGenerateSocket(
 // The deliverable here is the actual .pptx file (the template, populated
 // server-side by python-pptx) -- not something rendered client-side, so
 // this fetches the binary and triggers a real download rather than parsing
-// a JSON diagram the way the other tools' export paths do.
-export async function exportWheelPptx(wheel: InfographicWheel): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/infographic/wheel/export`, {
+// a JSON diagram the way the other tools' export paths do. Which template
+// builder runs server-side is dispatched from the `template` discriminator
+// already present on the diagram.
+export async function exportInfographicPptx(diagram: InfographicDiagram): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/infographic/export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(wheel),
+    body: JSON.stringify(diagram),
   })
   if (!res.ok) {
     throw new Error(await res.text())
@@ -107,7 +109,8 @@ export async function exportWheelPptx(wheel: InfographicWheel): Promise<void> {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = 'infographic-wheel.pptx'
+  link.download =
+    diagram.template === 'radial_wheel' ? 'infographic-wheel.pptx' : 'infographic-comparison.pptx'
   link.click()
   URL.revokeObjectURL(url)
 }

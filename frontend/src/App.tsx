@@ -122,7 +122,7 @@ function App() {
         <div className={`min-h-0 flex-1 ${activeTool === 'infographic' ? 'flex' : 'hidden'}`}>
           <InfographicSidebar onResult={setInfographicResult} issues={infographicResult?.issues ?? []} />
           <main className="flex min-w-0 flex-1 flex-col">
-            <InfographicCanvas wheel={infographicResult?.diagram ?? null} />
+            <InfographicCanvas diagram={infographicResult?.diagram ?? null} />
           </main>
         </div>
 
