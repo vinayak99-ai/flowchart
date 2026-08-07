@@ -18,6 +18,7 @@ BULLET_MIN_COUNT = 3
 BULLET_MAX_COUNT = 6
 MATRIX_QUADRANT_COUNT = 4
 MATRIX_ITEM_COUNT = 4
+HUB_SPOKE_ITEM_COUNT = 6
 DECK_MIN_SLIDES = 4
 DECK_MAX_SLIDES = 10
 
@@ -30,6 +31,7 @@ InfographicTemplateId = Literal[
     "bullet_summary",
     "matrix_2x2",
     "feature_story",
+    "hub_spoke",
 ]
 
 
@@ -140,6 +142,24 @@ class FeatureStory(BaseModel):
     impact: StoryAct
 
 
+class HubSpokeItem(BaseModel):
+    label: str
+    description: str
+
+
+class InfographicHubSpoke(BaseModel):
+    """A 6-item hub-and-spoke: a central theme with 6 facets in two side
+    columns (3 left, 3 right) connected to the hub by thin ring segments --
+    like radial_wheel but for 6 items with cards on both sides instead of
+    a single stacked list. `items` is ordered: first 3 = left column
+    (top to bottom), last 3 = right column (top to bottom)."""
+
+    template: Literal["hub_spoke"] = "hub_spoke"
+    title: str
+    description: str
+    items: list[HubSpokeItem] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -151,7 +171,8 @@ InfographicDiagram = Annotated[
     | InfographicTimeline
     | BulletSummarySlide
     | InfographicMatrix
-    | FeatureStory,
+    | FeatureStory
+    | InfographicHubSpoke,
     Field(discriminator="template"),
 ]
 

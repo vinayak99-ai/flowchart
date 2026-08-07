@@ -24,8 +24,10 @@ from app.infographic_models import (
     BulletSummarySlide,
     DeckPlan,
     FeatureStory,
+    HUB_SPOKE_ITEM_COUNT,
     InfographicComparison,
     InfographicDiagram,
+    InfographicHubSpoke,
     InfographicMatrix,
     InfographicPyramid,
     InfographicRoadmap,
@@ -38,6 +40,9 @@ from app.infographic_models import (
 TEMPLATE_CATALOG = """- radial_wheel: a single central theme with exactly 5 co-equal facets, stages, or pillars \
 arranged around it (e.g. a 5-step process, the 5 pillars of a strategy). Best when the items \
 are parts of one whole, not alternatives or a time-ordered sequence.
+- hub_spoke: a single central theme with exactly 6 co-equal facets in two side columns (3 left, \
+3 right). Same idea as radial_wheel but for 6 items instead of 5 -- use this instead of \
+radial_wheel when the material naturally has 6 parts, not 5.
 - comparison_columns: 2 to 4 options, plans, or approaches that should be compared side by \
 side (e.g. pricing tiers, before vs after, competing strategies). Best when the content is \
 naturally structured as parallel alternatives a reader chooses between.
@@ -404,6 +409,44 @@ async def generate_infographic_story(material: str, prompt: str) -> FeatureStory
     return parsed
 
 
+HUB_SPOKE_SYSTEM_PROMPT = f"""You are an infographic designer. Given source material and a user \
+prompt, derive a 6-item hub-and-spoke infographic as JSON matching the provided schema.
+
+Rules:
+- `title` is a short 1-4 word name for the overall theme (fits in the central hub).
+- `description` is one short sentence (under 20 words) elaborating on the hub theme, shown \
+below the title inside the hub.
+- `items` must contain EXACTLY {HUB_SPOKE_ITEM_COUNT} entries. This layout has a fixed 6-slot \
+geometry -- do not return more or fewer. Order them: the first 3 render as the left column \
+(top to bottom), the last 3 render as the right column (top to bottom).
+- Each item's `label` is a short 1-3 word name for that facet/step.
+- Each item's `description` is one short sentence (under 16 words) explaining it.
+- Base every item on what the source material actually describes. Do not invent items that \
+aren't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_hub_spoke(material: str, prompt: str) -> InfographicHubSpoke:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": HUB_SPOKE_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=InfographicHubSpoke,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed hub-and-spoke.")
+    return parsed
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
 ) -> InfographicDiagram:
@@ -421,6 +464,8 @@ async def generate_infographic(
         return await generate_infographic_matrix(material, prompt)
     if template == "feature_story":
         return await generate_infographic_story(material, prompt)
+    if template == "hub_spoke":
+        return await generate_infographic_hub_spoke(material, prompt)
     return await generate_infographic_wheel(material, prompt)
 
 

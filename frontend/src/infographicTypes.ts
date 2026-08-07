@@ -89,6 +89,18 @@ export interface FeatureStory {
   impact: StoryAct
 }
 
+export interface HubSpokeItem {
+  label: string
+  description: string
+}
+
+export interface InfographicHubSpoke {
+  template: 'hub_spoke'
+  title: string
+  description: string
+  items: HubSpokeItem[]
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
@@ -98,6 +110,7 @@ export type InfographicDiagram =
   | BulletSummarySlide
   | InfographicMatrix
   | FeatureStory
+  | InfographicHubSpoke
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram

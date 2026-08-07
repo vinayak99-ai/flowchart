@@ -12,6 +12,7 @@ from app.infographic_models import (
     BULLET_MAX_COUNT,
     BULLET_MIN_COUNT,
     COMPARISON_MAX_COLUMNS,
+    HUB_SPOKE_ITEM_COUNT,
     MATRIX_QUADRANT_COUNT,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
@@ -22,6 +23,7 @@ from app.infographic_models import (
     GenerateInfographicResponse,
     InfographicComparison,
     InfographicDiagram,
+    InfographicHubSpoke,
     InfographicMatrix,
     InfographicPyramid,
     InfographicRoadmap,
@@ -33,6 +35,7 @@ from app.infographic_template import (
     build_bullets_pptx,
     build_comparison_pptx,
     build_deck_pptx,
+    build_hub_spoke_pptx,
     build_matrix_pptx,
     build_pyramid_pptx,
     build_roadmap_pptx,
@@ -53,6 +56,7 @@ _EXPORT_BUILDERS = {
     "bullet_summary": (build_bullets_pptx, "infographic-bullets.pptx"),
     "matrix_2x2": (build_matrix_pptx, "infographic-matrix.pptx"),
     "feature_story": (build_story_pptx, "infographic-feature-story.pptx"),
+    "hub_spoke": (build_hub_spoke_pptx, "infographic-hub-spoke.pptx"),
 }
 
 
@@ -130,6 +134,17 @@ def _validate_infographic(data: InfographicDiagram) -> list[ValidationIssue]:
                     severity=ValidationSeverity.warning,
                     code="wrong_quadrant_count",
                     message=f"Matrix has {len(data.quadrants)} quadrants; the template has exactly {MATRIX_QUADRANT_COUNT}.",
+                )
+            ]
+        return []
+
+    if isinstance(data, InfographicHubSpoke):
+        if len(data.items) != HUB_SPOKE_ITEM_COUNT:
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_item_count",
+                    message=f"Hub & spoke has {len(data.items)} items; the template has exactly {HUB_SPOKE_ITEM_COUNT} slots.",
                 )
             ]
         return []

@@ -120,6 +120,7 @@ const INFOGRAPHIC_FILENAMES: Record<InfographicDiagram['template'], string> = {
   bullet_summary: 'infographic-bullets.pptx',
   matrix_2x2: 'infographic-matrix.pptx',
   feature_story: 'infographic-feature-story.pptx',
+  hub_spoke: 'infographic-hub-spoke.pptx',
 }
 
 // The deliverable here is the actual .pptx file (the template, populated

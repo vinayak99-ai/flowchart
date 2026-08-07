@@ -4,7 +4,8 @@ from typing import Callable
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.dml import MSO_LINE_DASH_STYLE
+from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Inches, Pt
 
@@ -12,6 +13,7 @@ from app.infographic_models import (
     BULLET_MAX_COUNT,
     COMPARISON_MAX_COLUMNS,
     COMPARISON_POINT_COUNT,
+    HUB_SPOKE_ITEM_COUNT,
     MATRIX_ITEM_COUNT,
     MATRIX_QUADRANT_COUNT,
     PYRAMID_MAX_PILLARS,
@@ -21,8 +23,10 @@ from app.infographic_models import (
     TIMELINE_MAX_MILESTONES,
     BulletSummarySlide,
     FeatureStory,
+    HubSpokeItem,
     InfographicComparison,
     InfographicDiagram,
+    InfographicHubSpoke,
     InfographicMatrix,
     InfographicPyramid,
     InfographicRoadmap,
@@ -114,6 +118,21 @@ STORY_BAR_H_IN = 0.6
 # the arc's tension even before the text is read.
 STORY_COLORS = {"problem": "C9457A", "solution": "3D5A80", "impact": "6B9B52"}
 
+HUB_SPOKE_CX_IN = SLIDE_W_IN / 2
+HUB_SPOKE_CY_IN = 3.9
+HUB_SPOKE_HUB_R_IN = 1.05
+HUB_SPOKE_RING_R_IN_IN = 1.15
+HUB_SPOKE_RING_R_OUT_IN = 1.4
+HUB_SPOKE_RING_HALF_SPAN_DEG = 15
+HUB_SPOKE_CARD_W_IN = 4.0
+HUB_SPOKE_CARD_H_IN = 1.3
+HUB_SPOKE_CARD_ROW_GAP_IN = 0.35
+HUB_SPOKE_SPOKE_GAP_IN = 0.6
+HUB_SPOKE_CAP_W_IN = 1.1
+# 6 distinct hues -- the reference stock template this was adapted from
+# reused one color across 2 of its 6 segments, which we deliberately fix here.
+HUB_SPOKE_COLORS = ["E8A33D", "6B9B52", "3D5A80", "C9457A", "2A9D8F", "8859A3"]
+
 
 def _new_presentation() -> Presentation:
     prs = Presentation()
@@ -131,6 +150,18 @@ def _save_bytes(prs: Presentation) -> bytes:
 def _polar(cx: float, cy: float, r: float, degrees: float) -> tuple[float, float]:
     rad = math.radians(degrees)
     return cx + r * math.cos(rad), cy + r * math.sin(rad)
+
+
+def _ring_segment_points(
+    cx: float, cy: float, r_in: float, r_out: float, a0: float, a1: float, steps: int = 8
+) -> list[tuple[float, float]]:
+    """Corner points for a thin arc (annulus sector), approximated with
+    straight segments -- sidesteps autoshape angle-adjustment units
+    entirely (no BLOCK_ARC-style risk), same reasoning as the pyramid's
+    freeform bands."""
+    points = [_polar(cx, cy, r_out, a0 + (a1 - a0) * i / steps) for i in range(steps + 1)]
+    points += [_polar(cx, cy, r_in, a1 - (a1 - a0) * i / steps) for i in range(steps + 1)]
+    return points
 
 
 def _set_fill(shape, hex_color: str) -> None:
@@ -964,6 +995,166 @@ def build_story_pptx(data: FeatureStory) -> bytes:
     return _save_bytes(prs)
 
 
+def add_hub_spoke_slide(prs: Presentation, data: InfographicHubSpoke) -> None:
+    """A 6-item hub-and-spoke, adapted from a stock reference design: a
+    decorative ring of 6 thin color-coded arc segments around a central
+    hub, each linked by a dashed connector + dot to a two-column card
+    layout (3 left, 3 right) -- visually distinct from radial_wheel's
+    solid pie wedges and single-side list, and closer to how the reference
+    used a lighter connector language to stay legible at 6 items.
+    """
+    items = data.items[:HUB_SPOKE_ITEM_COUNT]
+    items += [HubSpokeItem(label="", description="") for _ in range(HUB_SPOKE_ITEM_COUNT - len(items))]
+
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    cx, cy = HUB_SPOKE_CX_IN, HUB_SPOKE_CY_IN
+
+    total_h = 3 * HUB_SPOKE_CARD_H_IN + 2 * HUB_SPOKE_CARD_ROW_GAP_IN
+    top = cy - total_h / 2
+    row_cy = [top + i * (HUB_SPOKE_CARD_H_IN + HUB_SPOKE_CARD_ROW_GAP_IN) + HUB_SPOKE_CARD_H_IN / 2 for i in range(3)]
+
+    right_x = cx + HUB_SPOKE_RING_R_OUT_IN + HUB_SPOKE_SPOKE_GAP_IN
+    left_x = cx - HUB_SPOKE_RING_R_OUT_IN - HUB_SPOKE_SPOKE_GAP_IN - HUB_SPOKE_CARD_W_IN
+
+    # items[0:3] = left column (top to bottom), items[3:6] = right column.
+    slots = [(i, "left", left_x) for i in range(3)] + [(i, "right", right_x) for i in range(3)]
+
+    for idx, (item, (row_i, side, card_x)) in enumerate(zip(items, slots)):
+        color = HUB_SPOKE_COLORS[idx % len(HUB_SPOKE_COLORS)]
+        card_y = row_cy[row_i] - HUB_SPOKE_CARD_H_IN / 2
+
+        near_x = card_x + HUB_SPOKE_CARD_W_IN if side == "left" else card_x
+        near_y = row_cy[row_i]
+        angle = math.degrees(math.atan2(near_y - cy, near_x - cx))
+
+        pts = _ring_segment_points(
+            cx, cy, HUB_SPOKE_RING_R_IN_IN, HUB_SPOKE_RING_R_OUT_IN,
+            angle - HUB_SPOKE_RING_HALF_SPAN_DEG, angle + HUB_SPOKE_RING_HALF_SPAN_DEG,
+        )
+        fb = slide.shapes.build_freeform(Inches(pts[0][0]), Inches(pts[0][1]), scale=1)
+        fb.add_line_segments([(Inches(x), Inches(y)) for x, y in pts[1:]], close=True)
+        ring_shape = fb.convert_to_shape()
+        _set_fill(ring_shape, color)
+        ring_shape.shadow.inherit = False
+
+        edge_x, edge_y = _polar(cx, cy, HUB_SPOKE_RING_R_OUT_IN, angle)
+        connector = slide.shapes.add_connector(
+            MSO_CONNECTOR.STRAIGHT, Inches(edge_x), Inches(edge_y), Inches(near_x), Inches(near_y)
+        )
+        connector.line.color.rgb = RGBColor.from_string(color)
+        connector.line.width = Pt(1.5)
+        connector.line.dash_style = MSO_LINE_DASH_STYLE.DASH
+
+        dot_x, dot_y = (edge_x + near_x) / 2, (edge_y + near_y) / 2
+        dot = slide.shapes.add_shape(
+            MSO_SHAPE.OVAL, Inches(dot_x - 0.06), Inches(dot_y - 0.06), Inches(0.12), Inches(0.12)
+        )
+        _set_fill(dot, color)
+        dot.shadow.inherit = False
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(card_x), Inches(card_y), Inches(HUB_SPOKE_CARD_W_IN), Inches(HUB_SPOKE_CARD_H_IN)
+        )
+        card.adjustments[0] = 0.5
+        _set_fill(card, "FFFFFF")
+        card.line.color.rgb = RGBColor.from_string("E4E1D8")
+        card.line.width = Pt(1)
+        card.line.fill.solid()
+        card.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+        card.shadow.inherit = False
+
+        cap_x = card_x if side == "right" else card_x + HUB_SPOKE_CARD_W_IN - HUB_SPOKE_CAP_W_IN
+        cap = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(cap_x), Inches(card_y), Inches(HUB_SPOKE_CAP_W_IN), Inches(HUB_SPOKE_CARD_H_IN)
+        )
+        _set_fill(cap, color)
+        cap.shadow.inherit = False
+        _add_label(
+            slide, cap_x + HUB_SPOKE_CAP_W_IN / 2, card_y + HUB_SPOKE_CARD_H_IN / 2, HUB_SPOKE_CAP_W_IN - 0.2,
+            f"{idx + 1:02d}", size=22, bold=True, color="FFFFFF", h_in=HUB_SPOKE_CARD_H_IN - 0.2,
+        )
+
+        text_x = card_x + HUB_SPOKE_CAP_W_IN + 0.2 if side == "right" else card_x + 0.2
+        text_w = HUB_SPOKE_CARD_W_IN - HUB_SPOKE_CAP_W_IN - 0.4
+        text_box = slide.shapes.add_textbox(
+            Inches(text_x), Inches(card_y + 0.12), Inches(text_w), Inches(HUB_SPOKE_CARD_H_IN - 0.24)
+        )
+        tf = text_box.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p_label = tf.paragraphs[0]
+        run = p_label.add_run()
+        run.text = item.label.upper()
+        run.font.size = Pt(13)
+        run.font.bold = True
+        run.font.color.rgb = RGBColor.from_string("1B1F1C")
+        run.font.name = "Arial"
+
+        if item.description:
+            p_desc = tf.add_paragraph()
+            p_desc.space_before = Pt(2)
+            run = p_desc.add_run()
+            run.text = item.description
+            run.font.size = Pt(10)
+            run.font.color.rgb = RGBColor.from_string("5B5A52")
+            run.font.name = "Arial"
+
+    # Hub drawn last so it sits above the ring segments' inner points.
+    hub = slide.shapes.add_shape(
+        MSO_SHAPE.OVAL,
+        Inches(cx - HUB_SPOKE_HUB_R_IN), Inches(cy - HUB_SPOKE_HUB_R_IN),
+        Inches(2 * HUB_SPOKE_HUB_R_IN), Inches(2 * HUB_SPOKE_HUB_R_IN),
+    )
+    _set_fill(hub, "FFFFFF")
+    hub.line.color.rgb = RGBColor.from_string("E4E1D8")
+    hub.line.width = Pt(2)
+    hub.line.fill.solid()
+    hub.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+    hub.shadow.inherit = False
+
+    hub_text = slide.shapes.add_textbox(
+        Inches(cx - HUB_SPOKE_HUB_R_IN + 0.15), Inches(cy - HUB_SPOKE_HUB_R_IN + 0.15),
+        Inches(2 * HUB_SPOKE_HUB_R_IN - 0.3), Inches(2 * HUB_SPOKE_HUB_R_IN - 0.3),
+    )
+    tf = hub_text.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = 0
+    tf.margin_right = 0
+    tf.margin_top = 0
+    tf.margin_bottom = 0
+    p_title = tf.paragraphs[0]
+    p_title.alignment = PP_ALIGN.CENTER
+    run = p_title.add_run()
+    run.text = data.title.upper()
+    run.font.size = Pt(15)
+    run.font.bold = True
+    run.font.color.rgb = RGBColor.from_string("1B1F1C")
+    run.font.name = "Arial"
+
+    if data.description:
+        p_desc = tf.add_paragraph()
+        p_desc.alignment = PP_ALIGN.CENTER
+        p_desc.space_before = Pt(4)
+        run = p_desc.add_run()
+        run.text = data.description
+        run.font.size = Pt(9.5)
+        run.font.color.rgb = RGBColor.from_string("5B5A52")
+        run.font.name = "Arial"
+
+
+def build_hub_spoke_pptx(data: InfographicHubSpoke) -> bytes:
+    prs = _new_presentation()
+    add_hub_spoke_slide(prs, data)
+    return _save_bytes(prs)
+
+
 _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
     "radial_wheel": add_wheel_slide,
     "comparison_columns": add_comparison_slide,
@@ -973,6 +1164,7 @@ _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], Non
     "bullet_summary": add_bullet_slide,
     "matrix_2x2": add_matrix_slide,
     "feature_story": add_story_slide,
+    "hub_spoke": add_hub_spoke_slide,
 }
 
 

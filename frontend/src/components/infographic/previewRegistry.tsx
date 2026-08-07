@@ -7,6 +7,7 @@ import { TimelinePreview } from './TimelinePreview'
 import { BulletSummaryPreview } from './BulletSummaryPreview'
 import { MatrixPreview } from './MatrixPreview'
 import { StoryPreview } from './StoryPreview'
+import { HubSpokePreview } from './HubSpokePreview'
 
 // Shared between the single-infographic canvas and the multi-slide deck
 // canvas, so both render every template the exact same way rather than
@@ -20,6 +21,7 @@ export const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
   bullet_summary: 'Bullet summary',
   matrix_2x2: '2x2 matrix',
   feature_story: 'Feature story',
+  hub_spoke: 'Hub & spoke',
 }
 
 export function renderInfographicPreview(
@@ -73,6 +75,12 @@ export function renderInfographicPreview(
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
           <StoryPreview story={diagram} onChange={onChange} />
+        </div>
+      )
+    case 'hub_spoke':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <HubSpokePreview hubSpoke={diagram} onChange={onChange} />
         </div>
       )
   }
