@@ -75,6 +75,20 @@ export interface InfographicMatrix {
   quadrants: MatrixQuadrant[]
 }
 
+export interface StoryAct {
+  heading: string
+  body: string
+  detail: string
+}
+
+export interface FeatureStory {
+  template: 'feature_story'
+  headline: string
+  problem: StoryAct
+  solution: StoryAct
+  impact: StoryAct
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
@@ -83,6 +97,7 @@ export type InfographicDiagram =
   | InfographicTimeline
   | BulletSummarySlide
   | InfographicMatrix
+  | FeatureStory
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram

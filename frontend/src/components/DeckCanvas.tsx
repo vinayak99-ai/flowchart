@@ -9,7 +9,9 @@ interface DeckCanvasProps {
 }
 
 function slideTitle(diagram: InfographicDiagram): string {
-  return diagram.template === 'vision_pyramid' ? diagram.vision || 'Vision' : diagram.title || 'Untitled'
+  if (diagram.template === 'vision_pyramid') return diagram.vision || 'Vision'
+  if (diagram.template === 'feature_story') return diagram.headline || 'Feature Story'
+  return diagram.title || 'Untitled'
 }
 
 export function DeckCanvas({ deck, onDeckChange }: DeckCanvasProps) {

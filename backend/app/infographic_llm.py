@@ -23,6 +23,7 @@ from app.infographic_models import (
     TIMELINE_MIN_MILESTONES,
     BulletSummarySlide,
     DeckPlan,
+    FeatureStory,
     InfographicComparison,
     InfographicDiagram,
     InfographicMatrix,
@@ -52,6 +53,10 @@ now_next_later which has no dates.
 (e.g. Impact vs Effort for prioritization) or a categorical split (e.g. a SWOT analysis: \
 Strengths/Weaknesses/Opportunities/Threats). Best when the material is naturally comparing \
 items along two dimensions at once, not just listing or sequencing them.
+- feature_story: the narrative of ONE specific feature or epic -- the problem it solves, what \
+was built, and the business impact delivered -- as a causal Problem -> Solution -> Impact arc. \
+Best for a stakeholder update on a single piece of work, not a roadmap of multiple initiatives \
+(now_next_later) or a comparison of options (comparison_columns).
 - bullet_summary: a plain title + a short bullet list. Use this whenever content doesn't \
 cleanly fit any of the shaped templates above -- it's the flexible fallback, not a last resort \
 to avoid; forcing a poor fit into a shaped template is worse than a clean bullet list."""
@@ -356,6 +361,49 @@ async def generate_infographic_matrix(material: str, prompt: str) -> Infographic
     return parsed
 
 
+STORY_SYSTEM_PROMPT = """You are a product manager telling the story of a specific feature or \
+epic for a stakeholder update. Given source material and a user prompt, derive a \
+Problem -> Solution -> Impact narrative as JSON matching the provided schema.
+
+Rules:
+- `headline` is one bold sentence stating the business value -- the line a skimming executive \
+should remember (e.g. "Checkout redesign recovered $2.1M in annual revenue by cutting drop-off \
+40%."). Lead with the outcome, not the feature name.
+- `problem.heading` is a short 2-4 word label for this act (e.g. "The Problem"). `problem.body` \
+is one sentence describing the pain point. `problem.detail` is a short supporting line -- \
+who's affected and/or a quantifying stat, if the material provides one.
+- `solution.heading` is a short label (e.g. "The Solution"). `solution.body` names the \
+feature/epic and describes what it does in plain language, not a spec. `solution.detail` is \
+the key capability or mechanism that made it work, in one short phrase.
+- `impact.heading` is a short label (e.g. "The Impact"). `impact.body` is the measured or \
+projected business outcome. `impact.detail` is which company goal/strategic priority this ties \
+back to, or what it unlocks next.
+- Base everything on what the source material actually describes. Do not invent metrics or \
+outcomes that aren't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_story(material: str, prompt: str) -> FeatureStory:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": STORY_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=FeatureStory,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed story.")
+    return parsed
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
 ) -> InfographicDiagram:
@@ -371,6 +419,8 @@ async def generate_infographic(
         return await generate_infographic_bullets(material, prompt)
     if template == "matrix_2x2":
         return await generate_infographic_matrix(material, prompt)
+    if template == "feature_story":
+        return await generate_infographic_story(material, prompt)
     return await generate_infographic_wheel(material, prompt)
 
 

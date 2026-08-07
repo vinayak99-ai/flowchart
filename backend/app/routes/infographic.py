@@ -36,6 +36,7 @@ from app.infographic_template import (
     build_matrix_pptx,
     build_pyramid_pptx,
     build_roadmap_pptx,
+    build_story_pptx,
     build_timeline_pptx,
     build_wheel_pptx,
 )
@@ -51,6 +52,7 @@ _EXPORT_BUILDERS = {
     "quarterly_timeline": (build_timeline_pptx, "infographic-timeline.pptx"),
     "bullet_summary": (build_bullets_pptx, "infographic-bullets.pptx"),
     "matrix_2x2": (build_matrix_pptx, "infographic-matrix.pptx"),
+    "feature_story": (build_story_pptx, "infographic-feature-story.pptx"),
 }
 
 

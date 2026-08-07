@@ -29,6 +29,7 @@ InfographicTemplateId = Literal[
     "quarterly_timeline",
     "bullet_summary",
     "matrix_2x2",
+    "feature_story",
 ]
 
 
@@ -121,6 +122,24 @@ class InfographicMatrix(BaseModel):
     quadrants: list[MatrixQuadrant] = Field(default_factory=list)
 
 
+class StoryAct(BaseModel):
+    heading: str
+    body: str
+    detail: str
+
+
+class FeatureStory(BaseModel):
+    """A single feature/epic's narrative for a stakeholder update: the
+    problem it solves, what was built, and the business impact -- a causal
+    3-act arc, not a comparison or a sequence of unrelated items."""
+
+    template: Literal["feature_story"] = "feature_story"
+    headline: str
+    problem: StoryAct
+    solution: StoryAct
+    impact: StoryAct
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -131,7 +150,8 @@ InfographicDiagram = Annotated[
     | InfographicPyramid
     | InfographicTimeline
     | BulletSummarySlide
-    | InfographicMatrix,
+    | InfographicMatrix
+    | FeatureStory,
     Field(discriminator="template"),
 ]
 

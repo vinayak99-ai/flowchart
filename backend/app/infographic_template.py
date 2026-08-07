@@ -20,6 +20,7 @@ from app.infographic_models import (
     ROADMAP_ITEM_COUNT,
     TIMELINE_MAX_MILESTONES,
     BulletSummarySlide,
+    FeatureStory,
     InfographicComparison,
     InfographicDiagram,
     InfographicMatrix,
@@ -101,6 +102,17 @@ MATRIX_GRID_W_IN = 11.0
 MATRIX_GRID_H_IN = 5.4
 MATRIX_GRID_GAP_IN = 0.25
 MATRIX_BAR_H_IN = 0.55
+
+STORY_HEADLINE_Y_IN = 0.9
+STORY_HEADLINE_H_IN = 1.2
+STORY_PANEL_TOP_IN = 2.5
+STORY_PANEL_H_IN = 4.3
+STORY_MARGIN_IN = 0.8
+STORY_GAP_IN = 0.5
+STORY_BAR_H_IN = 0.6
+# Warm (friction) -> neutral (build) -> cool-positive (result), reinforcing
+# the arc's tension even before the text is read.
+STORY_COLORS = {"problem": "C9457A", "solution": "3D5A80", "impact": "6B9B52"}
 
 
 def _new_presentation() -> Presentation:
@@ -857,6 +869,101 @@ def build_matrix_pptx(data: InfographicMatrix) -> bytes:
     return _save_bytes(prs)
 
 
+def add_story_slide(prs: Presentation, data: FeatureStory) -> None:
+    """A single feature/epic's Problem -> Solution -> Impact narrative: a
+    full-width headline (the one-sentence business value, kept outside the
+    panels for the same reason the pyramid's vision statement is -- a real
+    sentence needs more width than a narrow panel gives it) above 3 panels
+    connected by arrow glyphs, so it reads as causality rather than a
+    parallel comparison like comparison_columns.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, STORY_HEADLINE_Y_IN, SLIDE_W_IN - 2.0, data.headline,
+        size=22, bold=True, color="1B1F1C", h_in=STORY_HEADLINE_H_IN,
+    )
+
+    panel_w = (SLIDE_W_IN - 2 * STORY_MARGIN_IN - 2 * STORY_GAP_IN) / 3
+    acts = [("problem", data.problem), ("solution", data.solution), ("impact", data.impact)]
+
+    for i, (key, act) in enumerate(acts):
+        color = STORY_COLORS[key]
+        px = STORY_MARGIN_IN + i * (panel_w + STORY_GAP_IN)
+        py = STORY_PANEL_TOP_IN
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(px), Inches(py), Inches(panel_w), Inches(STORY_PANEL_H_IN)
+        )
+        card.adjustments[0] = 0.05
+        _set_fill(card, "FFFFFF")
+        card.line.color.rgb = RGBColor.from_string("E4E1D8")
+        card.line.width = Pt(1)
+        card.line.fill.solid()
+        card.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+        card.shadow.inherit = False
+
+        bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(px), Inches(py), Inches(panel_w), Inches(STORY_BAR_H_IN)
+        )
+        _set_fill(bar, color)
+        bar.shadow.inherit = False
+        _add_label(
+            slide, px + panel_w / 2, py + STORY_BAR_H_IN / 2, panel_w - 0.3, act.heading.upper(),
+            size=13, bold=True, color="FFFFFF", h_in=STORY_BAR_H_IN - 0.1,
+        )
+
+        body_box = slide.shapes.add_textbox(
+            Inches(px + 0.3), Inches(py + STORY_BAR_H_IN + 0.25), Inches(panel_w - 0.6), Inches(2.1)
+        )
+        tf = body_box.text_frame
+        tf.word_wrap = True
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = act.body
+        run.font.size = Pt(14)
+        run.font.bold = True
+        run.font.color.rgb = RGBColor.from_string("1B1F1C")
+        run.font.name = "Arial"
+
+        if act.detail:
+            detail_box = slide.shapes.add_textbox(
+                Inches(px + 0.3), Inches(py + STORY_PANEL_H_IN - 1.1), Inches(panel_w - 0.6), Inches(0.9)
+            )
+            tf2 = detail_box.text_frame
+            tf2.word_wrap = True
+            tf2.vertical_anchor = MSO_ANCHOR.BOTTOM
+            tf2.margin_left = 0
+            tf2.margin_right = 0
+            tf2.margin_top = 0
+            tf2.margin_bottom = 0
+            p2 = tf2.paragraphs[0]
+            run2 = p2.add_run()
+            run2.text = act.detail
+            run2.font.size = Pt(11)
+            run2.font.italic = True
+            run2.font.color.rgb = RGBColor.from_string(color)
+            run2.font.name = "Arial"
+
+    # Arrow connectors between panels -- what makes this read as causality
+    # rather than 3 parallel columns.
+    for i in range(2):
+        gx = STORY_MARGIN_IN + (i + 1) * panel_w + i * STORY_GAP_IN + STORY_GAP_IN / 2
+        gy = STORY_PANEL_TOP_IN + STORY_PANEL_H_IN / 2
+        _add_label(slide, gx, gy, STORY_GAP_IN + 0.3, "→", size=28, bold=True, color="9B968A", h_in=0.5)
+
+
+def build_story_pptx(data: FeatureStory) -> bytes:
+    prs = _new_presentation()
+    add_story_slide(prs, data)
+    return _save_bytes(prs)
+
+
 _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
     "radial_wheel": add_wheel_slide,
     "comparison_columns": add_comparison_slide,
@@ -865,6 +972,7 @@ _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], Non
     "quarterly_timeline": add_timeline_slide,
     "bullet_summary": add_bullet_slide,
     "matrix_2x2": add_matrix_slide,
+    "feature_story": add_story_slide,
 }
 
 
