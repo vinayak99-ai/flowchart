@@ -9,6 +9,7 @@ import { TimelinePreview } from './infographic/TimelinePreview'
 
 interface InfographicCanvasProps {
   diagram: InfographicDiagram | null
+  onDiagramChange: (diagram: InfographicDiagram) => void
 }
 
 const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
@@ -19,42 +20,42 @@ const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
   quarterly_timeline: 'Quarterly timeline',
 }
 
-function renderPreview(diagram: InfographicDiagram) {
+function renderPreview(diagram: InfographicDiagram, onChange: (diagram: InfographicDiagram) => void) {
   switch (diagram.template) {
     case 'radial_wheel':
       return (
         <div className="aspect-[31/30] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <WheelPreview wheel={diagram} />
+          <WheelPreview wheel={diagram} onChange={onChange} />
         </div>
       )
     case 'comparison_columns':
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <ComparisonPreview comparison={diagram} />
+          <ComparisonPreview comparison={diagram} onChange={onChange} />
         </div>
       )
     case 'now_next_later':
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <RoadmapPreview roadmap={diagram} />
+          <RoadmapPreview roadmap={diagram} onChange={onChange} />
         </div>
       )
     case 'vision_pyramid':
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <PyramidPreview pyramid={diagram} />
+          <PyramidPreview pyramid={diagram} onChange={onChange} />
         </div>
       )
     case 'quarterly_timeline':
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <TimelinePreview timeline={diagram} />
+          <TimelinePreview timeline={diagram} onChange={onChange} />
         </div>
       )
   }
 }
 
-export function InfographicCanvas({ diagram }: InfographicCanvasProps) {
+export function InfographicCanvas({ diagram, onDiagramChange }: InfographicCanvasProps) {
   const [busy, setBusy] = useState(false)
 
   const handleDownload = async () => {
@@ -73,9 +74,12 @@ export function InfographicCanvas({ diagram }: InfographicCanvasProps) {
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-semibold text-neutral-900">Infographic</h1>
           {diagram ? (
-            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600">
-              Detected: {TEMPLATE_LABEL[diagram.template]}
-            </span>
+            <>
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600">
+                Detected: {TEMPLATE_LABEL[diagram.template]}
+              </span>
+              <span className="text-[11px] text-neutral-400">Click any text to edit it</span>
+            </>
           ) : null}
         </div>
         <button
@@ -88,7 +92,7 @@ export function InfographicCanvas({ diagram }: InfographicCanvasProps) {
         </button>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center bg-neutral-50 p-8">
-        {diagram ? renderPreview(diagram) : (
+        {diagram ? renderPreview(diagram, onDiagramChange) : (
           <p className="text-sm text-neutral-500">Generate an infographic to see it here.</p>
         )}
       </div>

@@ -122,7 +122,12 @@ function App() {
         <div className={`min-h-0 flex-1 ${activeTool === 'infographic' ? 'flex' : 'hidden'}`}>
           <InfographicSidebar onResult={setInfographicResult} issues={infographicResult?.issues ?? []} />
           <main className="flex min-w-0 flex-1 flex-col">
-            <InfographicCanvas diagram={infographicResult?.diagram ?? null} />
+            <InfographicCanvas
+              diagram={infographicResult?.diagram ?? null}
+              onDiagramChange={(diagram) =>
+                setInfographicResult((prev) => (prev ? { ...prev, diagram } : prev))
+              }
+            />
           </main>
         </div>
 

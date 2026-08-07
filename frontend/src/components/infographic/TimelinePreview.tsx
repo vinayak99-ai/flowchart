@@ -1,20 +1,32 @@
 import type { InfographicTimeline } from '../../infographicTypes'
+import { EditableText } from './EditableText'
 
 const TIMELINE_COLORS = ['#3d5a80', '#6b9b52', '#c9457a', '#e8a33d', '#2a9d8f', '#8859a3']
 
 interface TimelinePreviewProps {
   timeline: InfographicTimeline
+  onChange: (timeline: InfographicTimeline) => void
 }
 
-export function TimelinePreview({ timeline }: TimelinePreviewProps) {
+export function TimelinePreview({ timeline, onChange }: TimelinePreviewProps) {
   const milestones = timeline.milestones.slice(0, 6)
   const n = milestones.length
 
+  const updateTitle = (title: string) => onChange({ ...timeline, title })
+  const updateField = (i: number, field: 'period' | 'label' | 'description', text: string) => {
+    const next = timeline.milestones.slice()
+    next[i] = { ...next[i], [field]: text }
+    onChange({ ...timeline, milestones: next })
+  }
+
   return (
     <div className="flex h-full w-full flex-col bg-white p-8">
-      <h2 className="text-center text-2xl font-extrabold uppercase tracking-wide text-neutral-900">
-        {timeline.title || 'Title'}
-      </h2>
+      <EditableText
+        value={timeline.title}
+        onCommit={updateTitle}
+        as="h2"
+        className="text-center text-2xl font-extrabold uppercase tracking-wide text-neutral-900"
+      />
       <div className="relative mt-10 flex-1">
         <div className="absolute left-[6%] right-[6%] top-1/2 h-px -translate-y-1/2 bg-neutral-300" />
         {milestones.map((m, i) => {
@@ -31,13 +43,25 @@ export function TimelinePreview({ timeline }: TimelinePreviewProps) {
                 className={`absolute w-32 -translate-x-1/2 text-center ${above ? 'bottom-3' : 'top-3'}`}
               >
                 <div className="rounded-lg border-2 bg-white p-2 shadow-sm" style={{ borderColor: color }}>
-                  <p className="text-[10px] font-bold uppercase" style={{ color }}>
-                    {m.period || 'Period'}
-                  </p>
-                  <p className="mt-0.5 text-xs font-bold text-neutral-900">{m.label || 'Milestone'}</p>
-                  {m.description ? (
-                    <p className="mt-0.5 text-[10px] text-neutral-600">{m.description}</p>
-                  ) : null}
+                  <EditableText
+                    value={m.period}
+                    onCommit={(text) => updateField(i, 'period', text)}
+                    as="p"
+                    className="text-[10px] font-bold uppercase"
+                    style={{ color }}
+                  />
+                  <EditableText
+                    value={m.label}
+                    onCommit={(text) => updateField(i, 'label', text)}
+                    as="p"
+                    className="mt-0.5 text-xs font-bold text-neutral-900"
+                  />
+                  <EditableText
+                    value={m.description}
+                    onCommit={(text) => updateField(i, 'description', text)}
+                    as="p"
+                    className="mt-0.5 text-[10px] text-neutral-600"
+                  />
                 </div>
               </div>
             </div>

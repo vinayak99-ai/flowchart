@@ -1,4 +1,5 @@
 import type { InfographicPyramid } from '../../infographicTypes'
+import { EditableText } from './EditableText'
 
 // Matches the backend's freeform band geometry (apex/base width ratio),
 // expressed as CSS clip-path polygons instead of literal shape corners --
@@ -12,17 +13,33 @@ function widthFraction(j: number, totalBands: number): number {
 
 interface PyramidPreviewProps {
   pyramid: InfographicPyramid
+  onChange: (pyramid: InfographicPyramid) => void
 }
 
-export function PyramidPreview({ pyramid }: PyramidPreviewProps) {
+export function PyramidPreview({ pyramid, onChange }: PyramidPreviewProps) {
   const pillars = pyramid.pillars.slice(0, 4)
   const totalBands = Math.max(1 + pillars.length, 2)
 
+  const updateVision = (vision: string) => onChange({ ...pyramid, vision })
+  const updatePillarLabel = (i: number, label: string) => {
+    const next = pyramid.pillars.slice()
+    next[i] = { ...next[i], label }
+    onChange({ ...pyramid, pillars: next })
+  }
+  const updatePillarDescription = (i: number, description: string) => {
+    const next = pyramid.pillars.slice()
+    next[i] = { ...next[i], description }
+    onChange({ ...pyramid, pillars: next })
+  }
+
   return (
     <div className="flex h-full w-full flex-col gap-4 bg-white p-8">
-      <p className="text-center text-xl font-extrabold text-neutral-900">
-        {pyramid.vision || 'Vision statement'}
-      </p>
+      <EditableText
+        value={pyramid.vision}
+        onCommit={updateVision}
+        as="p"
+        className="text-center text-xl font-extrabold text-neutral-900"
+      />
       <div className="flex flex-1 flex-col gap-1">
         {Array.from({ length: totalBands }).map((_, i) => {
           const w0 = widthFraction(i, totalBands) * 100
@@ -47,12 +64,18 @@ export function PyramidPreview({ pyramid }: PyramidPreviewProps) {
                   </span>
                 ) : (
                   <>
-                    <span className="text-sm font-bold uppercase text-white">
-                      {pillar?.label || `Pillar ${i}`}
-                    </span>
-                    {pillar?.description ? (
-                      <span className="mt-0.5 text-[11px] text-white/85">{pillar.description}</span>
-                    ) : null}
+                    <EditableText
+                      value={pillar?.label ?? ''}
+                      onCommit={(label) => updatePillarLabel(i - 1, label)}
+                      as="span"
+                      className="text-sm font-bold uppercase text-white"
+                    />
+                    <EditableText
+                      value={pillar?.description ?? ''}
+                      onCommit={(description) => updatePillarDescription(i - 1, description)}
+                      as="span"
+                      className="mt-0.5 text-[11px] text-white/85"
+                    />
                   </>
                 )}
               </div>
