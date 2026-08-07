@@ -118,6 +118,7 @@ const INFOGRAPHIC_FILENAMES: Record<InfographicDiagram['template'], string> = {
   vision_pyramid: 'infographic-vision-pyramid.pptx',
   quarterly_timeline: 'infographic-timeline.pptx',
   bullet_summary: 'infographic-bullets.pptx',
+  matrix_2x2: 'infographic-matrix.pptx',
 }
 
 // The deliverable here is the actual .pptx file (the template, populated

@@ -16,6 +16,8 @@ TIMELINE_MIN_MILESTONES = 4
 TIMELINE_MAX_MILESTONES = 6
 BULLET_MIN_COUNT = 3
 BULLET_MAX_COUNT = 6
+MATRIX_QUADRANT_COUNT = 4
+MATRIX_ITEM_COUNT = 4
 DECK_MIN_SLIDES = 4
 DECK_MAX_SLIDES = 10
 
@@ -26,6 +28,7 @@ InfographicTemplateId = Literal[
     "vision_pyramid",
     "quarterly_timeline",
     "bullet_summary",
+    "matrix_2x2",
 ]
 
 
@@ -100,6 +103,24 @@ class BulletSummarySlide(BaseModel):
     bullets: list[str] = Field(default_factory=list)
 
 
+class MatrixQuadrant(BaseModel):
+    label: str
+    items: list[str] = Field(default_factory=list)
+
+
+class InfographicMatrix(BaseModel):
+    """A 2x2 grid -- flexible enough for a prioritization matrix (continuous
+    axes like Impact/Effort) or a SWOT-style analysis (categorical axes).
+    Quadrants are always ordered top-left, top-right, bottom-left,
+    bottom-right."""
+
+    template: Literal["matrix_2x2"] = "matrix_2x2"
+    title: str
+    x_axis_label: str
+    y_axis_label: str
+    quadrants: list[MatrixQuadrant] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -109,7 +130,8 @@ InfographicDiagram = Annotated[
     | InfographicRoadmap
     | InfographicPyramid
     | InfographicTimeline
-    | BulletSummarySlide,
+    | BulletSummarySlide
+    | InfographicMatrix,
     Field(discriminator="template"),
 ]
 

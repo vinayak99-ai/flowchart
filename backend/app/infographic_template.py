@@ -12,6 +12,8 @@ from app.infographic_models import (
     BULLET_MAX_COUNT,
     COMPARISON_MAX_COLUMNS,
     COMPARISON_POINT_COUNT,
+    MATRIX_ITEM_COUNT,
+    MATRIX_QUADRANT_COUNT,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     ROADMAP_COLUMN_COUNT,
@@ -20,10 +22,12 @@ from app.infographic_models import (
     BulletSummarySlide,
     InfographicComparison,
     InfographicDiagram,
+    InfographicMatrix,
     InfographicPyramid,
     InfographicRoadmap,
     InfographicTimeline,
     InfographicWheel,
+    MatrixQuadrant,
     PyramidPillar,
     RoadmapColumn,
     WheelItem,
@@ -90,6 +94,14 @@ BULLET_LIST_WIDTH_IN = 10.3
 BULLET_ROW_H_IN = 0.85
 BULLET_ACCENT_COLOR = "3D5A80"
 
+MATRIX_TITLE_Y_IN = 0.5
+MATRIX_GRID_TOP_IN = 1.3
+MATRIX_GRID_LEFT_IN = 1.6
+MATRIX_GRID_W_IN = 11.0
+MATRIX_GRID_H_IN = 5.4
+MATRIX_GRID_GAP_IN = 0.25
+MATRIX_BAR_H_IN = 0.55
+
 
 def _new_presentation() -> Presentation:
     prs = Presentation()
@@ -139,6 +151,33 @@ def _add_background(slide, prs: Presentation) -> None:
     bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
     _set_fill(bg, "FAF9F6")
     bg.shadow.inherit = False
+
+
+def _add_rotated_label(slide, cx_in: float, cy_in: float, visual_h_in: float, text: str, *, size: int, color: str):
+    """A label that reads bottom-to-top, for a y-axis. Built by sizing the
+    box for its PRE-rotation orientation (width = the height it should
+    visually occupy, height = its visual thickness) centered on the target
+    point, then rotating 270 degrees -- verified round-trip via python-pptx
+    that rotation is preserved and the box stays centered on (cx, cy).
+    """
+    w_in, h_in = visual_h_in, 0.4
+    box = slide.shapes.add_textbox(Inches(cx_in - w_in / 2), Inches(cy_in - h_in / 2), Inches(w_in), Inches(h_in))
+    box.rotation = 270
+    tf = box.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = 0
+    tf.margin_right = 0
+    tf.margin_top = 0
+    tf.margin_bottom = 0
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    run = p.add_run()
+    run.text = text.upper()
+    run.font.size = Pt(size)
+    run.font.bold = True
+    run.font.color.rgb = RGBColor.from_string(color)
+    run.font.name = "Arial"
 
 
 def add_wheel_slide(prs: Presentation, data: InfographicWheel) -> None:
@@ -713,6 +752,111 @@ def build_bullets_pptx(data: BulletSummarySlide) -> bytes:
     return _save_bytes(prs)
 
 
+def add_matrix_slide(prs: Presentation, data: InfographicMatrix) -> None:
+    """A 2x2 grid -- prioritization matrix or SWOT, depending on the axis
+    labels/quadrant content the LLM chose. Axis labels use `_add_rotated_label`
+    for the y-axis rather than a ring/BLOCK_ARC-style shape trick, since this
+    is just plain rotated text, not a curved shape.
+    """
+    quadrants = data.quadrants[:MATRIX_QUADRANT_COUNT]
+    quadrants += [
+        MatrixQuadrant(label="", items=[])
+        for _ in range(MATRIX_QUADRANT_COUNT - len(quadrants))
+    ]
+
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, MATRIX_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
+        size=26, bold=True, color="1B1F1C", h_in=0.7,
+    )
+
+    cell_w = (MATRIX_GRID_W_IN - MATRIX_GRID_GAP_IN) / 2
+    cell_h = (MATRIX_GRID_H_IN - MATRIX_GRID_GAP_IN) / 2
+    bar_h = MATRIX_BAR_H_IN
+
+    # Quadrant order matches the schema: top-left, top-right, bottom-left, bottom-right.
+    positions = [
+        (MATRIX_GRID_LEFT_IN, MATRIX_GRID_TOP_IN),
+        (MATRIX_GRID_LEFT_IN + cell_w + MATRIX_GRID_GAP_IN, MATRIX_GRID_TOP_IN),
+        (MATRIX_GRID_LEFT_IN, MATRIX_GRID_TOP_IN + cell_h + MATRIX_GRID_GAP_IN),
+        (MATRIX_GRID_LEFT_IN + cell_w + MATRIX_GRID_GAP_IN, MATRIX_GRID_TOP_IN + cell_h + MATRIX_GRID_GAP_IN),
+    ]
+
+    for i, (quad, (qx, qy)) in enumerate(zip(quadrants, positions)):
+        color = COLUMN_COLORS[i % len(COLUMN_COLORS)]
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(qx), Inches(qy), Inches(cell_w), Inches(cell_h)
+        )
+        card.adjustments[0] = 0.04
+        _set_fill(card, "FFFFFF")
+        card.line.color.rgb = RGBColor.from_string("E4E1D8")
+        card.line.width = Pt(1)
+        card.line.fill.solid()
+        card.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+        card.shadow.inherit = False
+
+        bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(qx), Inches(qy), Inches(cell_w), Inches(bar_h)
+        )
+        _set_fill(bar, color)
+        bar.shadow.inherit = False
+        _add_label(
+            slide, qx + cell_w / 2, qy + bar_h / 2, cell_w - 0.3, quad.label.upper(),
+            size=14, bold=True, color="FFFFFF", h_in=bar_h - 0.1,
+        )
+
+        items = quad.items[:MATRIX_ITEM_COUNT]
+        body_top = qy + bar_h + 0.15
+        body_h = cell_h - bar_h - 0.3
+        row_h = body_h / MATRIX_ITEM_COUNT
+
+        for j, item in enumerate(items):
+            row_y = body_top + j * row_h
+            dot = slide.shapes.add_shape(
+                MSO_SHAPE.OVAL,
+                Inches(qx + 0.2), Inches(row_y + row_h / 2 - 0.04),
+                Inches(0.08), Inches(0.08),
+            )
+            _set_fill(dot, color)
+            dot.shadow.inherit = False
+
+            text_box = slide.shapes.add_textbox(
+                Inches(qx + 0.38), Inches(row_y), Inches(cell_w - 0.55), Inches(row_h)
+            )
+            tf = text_box.text_frame
+            tf.word_wrap = True
+            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            tf.margin_left = 0
+            tf.margin_right = 0
+            tf.margin_top = 0
+            tf.margin_bottom = 0
+            p = tf.paragraphs[0]
+            run = p.add_run()
+            run.text = item
+            run.font.size = Pt(11)
+            run.font.color.rgb = RGBColor.from_string("2A2E29")
+            run.font.name = "Arial"
+
+    _add_rotated_label(
+        slide, MATRIX_GRID_LEFT_IN - 0.55, MATRIX_GRID_TOP_IN + MATRIX_GRID_H_IN / 2, MATRIX_GRID_H_IN * 0.6,
+        data.y_axis_label, size=13, color="5B5A52",
+    )
+    _add_label(
+        slide, MATRIX_GRID_LEFT_IN + MATRIX_GRID_W_IN / 2, MATRIX_GRID_TOP_IN + MATRIX_GRID_H_IN + 0.3,
+        MATRIX_GRID_W_IN * 0.6, data.x_axis_label.upper(),
+        size=13, bold=True, color="5B5A52", h_in=0.4,
+    )
+
+
+def build_matrix_pptx(data: InfographicMatrix) -> bytes:
+    prs = _new_presentation()
+    add_matrix_slide(prs, data)
+    return _save_bytes(prs)
+
+
 _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
     "radial_wheel": add_wheel_slide,
     "comparison_columns": add_comparison_slide,
@@ -720,6 +864,7 @@ _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], Non
     "vision_pyramid": add_pyramid_slide,
     "quarterly_timeline": add_timeline_slide,
     "bullet_summary": add_bullet_slide,
+    "matrix_2x2": add_matrix_slide,
 }
 
 

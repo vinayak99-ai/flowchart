@@ -12,6 +12,7 @@ from app.infographic_models import (
     BULLET_MAX_COUNT,
     BULLET_MIN_COUNT,
     COMPARISON_MAX_COLUMNS,
+    MATRIX_QUADRANT_COUNT,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     TIMELINE_MAX_MILESTONES,
@@ -21,6 +22,7 @@ from app.infographic_models import (
     GenerateInfographicResponse,
     InfographicComparison,
     InfographicDiagram,
+    InfographicMatrix,
     InfographicPyramid,
     InfographicRoadmap,
     InfographicTimeline,
@@ -31,6 +33,7 @@ from app.infographic_template import (
     build_bullets_pptx,
     build_comparison_pptx,
     build_deck_pptx,
+    build_matrix_pptx,
     build_pyramid_pptx,
     build_roadmap_pptx,
     build_timeline_pptx,
@@ -47,6 +50,7 @@ _EXPORT_BUILDERS = {
     "vision_pyramid": (build_pyramid_pptx, "infographic-vision-pyramid.pptx"),
     "quarterly_timeline": (build_timeline_pptx, "infographic-timeline.pptx"),
     "bullet_summary": (build_bullets_pptx, "infographic-bullets.pptx"),
+    "matrix_2x2": (build_matrix_pptx, "infographic-matrix.pptx"),
 }
 
 
@@ -113,6 +117,17 @@ def _validate_infographic(data: InfographicDiagram) -> list[ValidationIssue]:
                     severity=ValidationSeverity.warning,
                     code="wrong_bullet_count",
                     message=f"Summary has {len(data.bullets)} bullets; the template supports {BULLET_MIN_COUNT}-{BULLET_MAX_COUNT}.",
+                )
+            ]
+        return []
+
+    if isinstance(data, InfographicMatrix):
+        if len(data.quadrants) != MATRIX_QUADRANT_COUNT:
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_quadrant_count",
+                    message=f"Matrix has {len(data.quadrants)} quadrants; the template has exactly {MATRIX_QUADRANT_COUNT}.",
                 )
             ]
         return []

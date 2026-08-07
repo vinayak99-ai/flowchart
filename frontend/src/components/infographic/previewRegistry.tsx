@@ -5,6 +5,7 @@ import { RoadmapPreview } from './RoadmapPreview'
 import { PyramidPreview } from './PyramidPreview'
 import { TimelinePreview } from './TimelinePreview'
 import { BulletSummaryPreview } from './BulletSummaryPreview'
+import { MatrixPreview } from './MatrixPreview'
 
 // Shared between the single-infographic canvas and the multi-slide deck
 // canvas, so both render every template the exact same way rather than
@@ -16,6 +17,7 @@ export const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
   vision_pyramid: 'Vision pyramid',
   quarterly_timeline: 'Quarterly timeline',
   bullet_summary: 'Bullet summary',
+  matrix_2x2: '2x2 matrix',
 }
 
 export function renderInfographicPreview(
@@ -57,6 +59,12 @@ export function renderInfographicPreview(
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
           <BulletSummaryPreview slide={diagram} onChange={onChange} />
+        </div>
+      )
+    case 'matrix_2x2':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <MatrixPreview matrix={diagram} onChange={onChange} />
         </div>
       )
   }

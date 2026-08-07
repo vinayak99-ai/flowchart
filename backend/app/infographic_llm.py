@@ -13,6 +13,8 @@ from app.infographic_models import (
     COMPARISON_POINT_COUNT,
     DECK_MAX_SLIDES,
     DECK_MIN_SLIDES,
+    MATRIX_ITEM_COUNT,
+    MATRIX_QUADRANT_COUNT,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     ROADMAP_COLUMN_COUNT,
@@ -23,6 +25,7 @@ from app.infographic_models import (
     DeckPlan,
     InfographicComparison,
     InfographicDiagram,
+    InfographicMatrix,
     InfographicPyramid,
     InfographicRoadmap,
     InfographicTemplateId,
@@ -45,6 +48,10 @@ Best for strategy or "why we exist" content, not for listing individual features
 - quarterly_timeline: 4-6 dated milestones along a single timeline (quarters, months, or named \
 phases with dates). Best when the material gives specific time markers for each item, unlike \
 now_next_later which has no dates.
+- matrix_2x2: content that sorts into a 2x2 grid along two axes -- either a continuous scale \
+(e.g. Impact vs Effort for prioritization) or a categorical split (e.g. a SWOT analysis: \
+Strengths/Weaknesses/Opportunities/Threats). Best when the material is naturally comparing \
+items along two dimensions at once, not just listing or sequencing them.
 - bullet_summary: a plain title + a short bullet list. Use this whenever content doesn't \
 cleanly fit any of the shaped templates above -- it's the flexible fallback, not a last resort \
 to avoid; forcing a poor fit into a shaped template is worse than a clean bullet list."""
@@ -309,6 +316,46 @@ async def generate_infographic_bullets(material: str, prompt: str) -> BulletSumm
     return parsed
 
 
+MATRIX_SYSTEM_PROMPT = f"""You are a product strategist building a 2x2 analysis matrix slide \
+(e.g. an Impact/Effort prioritization matrix, or a SWOT analysis). Given source material and a \
+user prompt, derive a 2x2 matrix as JSON matching the provided schema.
+
+Rules:
+- `title` is a short 1-5 word name for the matrix (e.g. "Prioritization Matrix", "SWOT Analysis").
+- `x_axis_label` and `y_axis_label` are short 1-2 word names for the horizontal and vertical \
+axes. These can be a continuous scale (e.g. "Effort" / "Impact") or a categorical split (e.g. \
+"Helpful" / "Harmful" for a SWOT-style matrix) -- pick whichever framing fits the material.
+- `quadrants` must contain EXACTLY {MATRIX_QUADRANT_COUNT} entries, in this exact order: \
+top-left, top-right, bottom-left, bottom-right.
+- Each quadrant's `label` is a short 2-5 word name for what that quadrant represents (e.g. \
+"Quick Wins", "Strengths").
+- Each quadrant's `items` contains up to {MATRIX_ITEM_COUNT} short phrases (under 8 words each).
+- Base everything on what the source material actually describes. Do not invent items that \
+aren't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_matrix(material: str, prompt: str) -> InfographicMatrix:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": MATRIX_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=InfographicMatrix,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed matrix.")
+    return parsed
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
 ) -> InfographicDiagram:
@@ -322,6 +369,8 @@ async def generate_infographic(
         return await generate_infographic_timeline(material, prompt)
     if template == "bullet_summary":
         return await generate_infographic_bullets(material, prompt)
+    if template == "matrix_2x2":
+        return await generate_infographic_matrix(material, prompt)
     return await generate_infographic_wheel(material, prompt)
 
 

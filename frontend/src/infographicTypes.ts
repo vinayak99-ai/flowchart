@@ -62,6 +62,19 @@ export interface BulletSummarySlide {
   bullets: string[]
 }
 
+export interface MatrixQuadrant {
+  label: string
+  items: string[]
+}
+
+export interface InfographicMatrix {
+  template: 'matrix_2x2'
+  title: string
+  x_axis_label: string
+  y_axis_label: string
+  quadrants: MatrixQuadrant[]
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
@@ -69,6 +82,7 @@ export type InfographicDiagram =
   | InfographicPyramid
   | InfographicTimeline
   | BulletSummarySlide
+  | InfographicMatrix
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram
