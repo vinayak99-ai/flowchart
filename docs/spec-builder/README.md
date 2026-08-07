@@ -1,17 +1,15 @@
-# AI PM Portal (Spec Builder)
+# Spec Builder
 
-> **Merged into Studio.** This directory holds the backend half of a copy of
-> [`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm) — the frontend
-> half was merged into `frontend/src/features/spec-builder/` (Studio's own
-> React app), and `backend/` here is no longer run as its own process: it's
-> imported by `../backend/app/pm_portal_app.py` and mounted at `/pm` on
-> Studio's single API process (`app.mount("/pm", pm_portal_app)`). Its
-> internal route/agent/persistence code (`main.py`, `agents.py`,
-> `persistence.py`, ...) is otherwise unchanged from upstream — see the root
-> [`README.md`](../README.md#running-everything-together) for how to run the
-> merged app, and the "Merge notes" section below for exactly what changed
-> and why. This is a one-way copy, not a git submodule or synced fork:
-> pulling in future upstream changes means re-copying by hand.
+A Studio tool, not a separate app: its backend is
+[`backend/app/spec_builder/`](../../backend/app/spec_builder) (mounted at
+`/pm` on Studio's single FastAPI process, see
+[`backend/app/main.py`](../../backend/app/main.py)) and its frontend is
+[`frontend/src/features/spec-builder/`](../../frontend/src/features/spec-builder)
+(Studio's own React app). One backend process, one frontend build, one
+`backend/.env` — see the root [`README.md`](../../README.md) for how to run
+Studio as a whole. This doc covers what Spec Builder actually does; originally
+built as a standalone tool ([`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm))
+and folded into Studio as native code, not an embedded app.
 
 An AI-assisted tool for product managers: paste raw notes about a feature or
 project, answer a short round of clarifying questions, and get back a
@@ -23,34 +21,24 @@ the browser, versioned automatically, and exported to Markdown, .docx, or
 .csv. Local-first — no database, no auth, no server-side multi-tenant
 credential storage; your data lives in plain JSON files on your own machine.
 
-> This repo was extracted from a design doc (`mvp-aipm.md`) and a fuller,
-> chat-style/checklist-driven product plan (`AI-PM.md`) originally developed
-> in the `vinayak99-ai/learn` repo's `plans/` folder — that repo has the full
-> design history and roadmap context this implementation was built from.
-
 ## Setup
 
-Set your model + API key — this is the only setup specific to this
-directory; there's no separate install or process to start (see the root
-[`README.md`](../README.md#running-everything-together) for running the
-merged app as a whole):
+Set your model + API key in Studio's one `backend/.env` (see the root
+[`README.md`](../../README.md#backend-setup) for the full variable table):
 
 ```bash
-cp config/.env.example config/.env
-# edit config/.env: set AIPM_MODEL (defaults to anthropic:claude-sonnet-5;
-# use openai:gpt-5 to run on OpenAI instead) and the matching *_API_KEY
+# in backend/.env, alongside OPENAI_API_KEY (Flowchart Builder's):
+AIPM_MODEL=anthropic:claude-sonnet-5   # or openai:gpt-5 to run on OpenAI instead
+ANTHROPIC_API_KEY=sk-ant-...           # or OPENAI_API_KEY, matching AIPM_MODEL's provider
 ```
 
 Optionally, also set `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` /
 `JIRA_PROJECT_KEY` in the same file to enable pushing epics to and syncing
-status from a real Jira project (see `config/.env.example` for details) —
-leave them unset to skip Jira entirely; everything else works without it.
+status from a real Jira project — leave them unset to skip Jira entirely;
+everything else works without it.
 
-`backend/requirements.txt` is documentation of what this code needs, not an
-install target — its packages (`pydantic-ai`, `jira`, ...) are installed as
-part of `../backend/requirements.txt`, since both run in the same Python
-process now. API docs for the mounted routes are at
-`http://localhost:8000/pm/docs` once the merged backend is running.
+API docs for the mounted routes are at `http://localhost:8000/pm/docs` once
+the backend is running.
 
 ## Features
 
@@ -274,63 +262,50 @@ document.
 ## Structure
 
 ```
-.
-  backend/     FastAPI + PydanticAI (extraction -> clarify -> generation -> architecture -> epics, plus diagram/brief/update/enrichment agents)
-               -- mounted at /pm on ../backend's own FastAPI app, not run standalone
-  config/      .env.example (copy to config/.env with AIPM_MODEL + your API key)
+backend/app/spec_builder/   FastAPI + PydanticAI (extraction -> clarify -> generation ->
+                             architecture -> epics, plus diagram/brief/update/enrichment
+                             agents) -- an ordinary package, imported and mounted at /pm
+                             by backend/app/main.py, not run standalone
+frontend/src/features/spec-builder/   Studio's own React app for this tool
 ```
-
-The frontend that used to live here is now
-[`../frontend/src/features/spec-builder/`](../frontend/src/features/spec-builder)
-— Studio's own React app, not a separate one.
 
 Provider-agnostic model config: `AIPM_MODEL=anthropic:claude-sonnet-5` or
 `AIPM_MODEL=openai:gpt-5` (or any other pydantic-ai-supported provider
-string) — set once in `config/.env`, no code changes.
+string) — set once in `backend/.env`, no code changes.
 
-## Merge notes
+## History
 
-What actually changed to fold this into Studio as one backend + one frontend,
-for whoever re-copies from upstream `vinayak99-ai/aipm` later:
+Originally built as a standalone app
+([`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm)), then merged
+into Studio as native code in two passes: first vendored in and run as a
+second mounted FastAPI app + separate frontend build, then folded all the way
+down into one backend package (`backend/app/spec_builder/`, ordinary relative
+imports, no `sys.path` tricks) and one shared `backend/.env` alongside
+Flowchart Builder's own vars. A few decisions from that process are still
+worth knowing:
 
-- **Backend**: nothing in `backend/*.py` changed. `../backend/app/pm_portal_app.py`
-  puts this directory on `sys.path` and imports its `main.py` as a module, so
-  its own flat, same-directory imports (`from persistence import ...`) keep
-  resolving without being rewritten. `../backend/app/main.py` then does
-  `app.mount("/pm", pm_portal_app)`. `backend/main.py`'s own `CORSMiddleware`
-  allowlist gained `http://127.0.0.1:5173`/`5174` alongside the `localhost`
-  origins — browsers treat `localhost` and `127.0.0.1` as different origins,
-  and Starlette's outer-app middleware (`../backend/app/main.py`'s own CORS
-  config) wraps the whole app including this mount, so *both* layers needed
-  the fix, not just this one.
-- **Frontend**: `frontend/src/App.tsx` (now `App.tsx`'s logic lives in
-  [`SpecBuilderApp.tsx`](../frontend/src/features/spec-builder/SpecBuilderApp.tsx))
-  no longer renders its own header — Studio's rail + breadcrumb frame it
-  instead; only the density/theme toggle buttons survived, moved into a slim
-  bar. Everything under `frontend/src/{pages,components,hooks,lib}/` moved to
-  `../frontend/src/features/spec-builder/{pages,components,hooks,lib}/` (own
-  `@/lib/api.ts`, `@/lib/types.ts`, etc. would otherwise collide by name with
-  Studio's unrelated `lib/api.ts`/`lib/theme.ts`). `frontend/src/components/ui/`
-  (the shadcn primitives) and `frontend/src/lib/utils.ts` (the `cn()` helper
-  they all import) moved to Studio's shared, top-level
-  `../frontend/src/components/ui/` and `../frontend/src/lib/utils.ts` instead
-  — those aren't Spec-Builder-specific, and future Studio tools can reuse them.
-- **Design tokens**: `frontend/src/index.css`'s shadcn token set was merged
-  into `../frontend/src/index.css`, *except* `--primary`/`--accent` (and
-  their `@theme inline` mappings) — those two names already existed in
-  Studio's own token set (`--color-primary`, `--color-accent`, swapped at
-  runtime by `lib/themes.ts`), so every shadcn component's `bg-primary`/
-  `text-primary`/`bg-accent`/etc. now resolves through Studio's actual brand
-  color instead of shadcn's default grayscale, without editing any component.
-  `--primary-foreground`/`--accent-foreground` were pinned to a constant
-  value in both light and dark (rather than flipping the way upstream
-  shadcn's do), since they're now paired with a fixed saturated brand color,
-  not a gray that itself flips.
+- **CORS**: `backend/app/main.py`'s outer `CORSMiddleware` wraps the whole
+  app including the `/pm` mount, so both it and Spec Builder's own inner
+  `CORSMiddleware` (`backend/app/spec_builder/main.py`) need to allow
+  whichever origin the frontend actually loaded from — `localhost` and
+  `127.0.0.1` are different origins to a browser, so both are allowlisted in
+  both layers.
+- **Design tokens**: the shadcn component library's CSS custom properties
+  were merged into Studio's own `frontend/src/index.css`, *except*
+  `--primary`/`--accent` (and their `@theme inline` mappings) — those two
+  names already existed in Studio's own token set (`--color-primary`,
+  `--color-accent`, swapped at runtime by `lib/themes.ts`), so every shadcn
+  component's `bg-primary`/`text-primary`/`bg-accent`/etc. resolves through
+  Studio's actual brand color instead of shadcn's default grayscale, without
+  editing any component. `--primary-foreground`/`--accent-foreground` are
+  pinned to a constant value in both light and dark (rather than flipping
+  the way upstream shadcn's do), since they're paired with a fixed saturated
+  brand color, not a gray that itself flips.
 
 ## Known gaps (not implemented)
 
 The full, prioritized defect and risk review lives in
-**[`docs/KNOWN-ISSUES.md`](docs/KNOWN-ISSUES.md)** — including data-safety
+**[`KNOWN-ISSUES.md`](KNOWN-ISSUES.md)** — including data-safety
 items (non-atomic file writes, last-writer-wins concurrent saves,
 unvalidated path ids) and engineering debt (no committed test suite,
 unpinned dependencies). The most visible functional gaps:
@@ -362,13 +337,13 @@ unpinned dependencies). The most visible functional gaps:
 
 ## More documentation
 
-- **[`docs/KNOWN-ISSUES.md`](docs/KNOWN-ISSUES.md)** — the critical review:
+- **[`KNOWN-ISSUES.md`](KNOWN-ISSUES.md)** — the critical review:
   data-safety risks, product gaps, engineering debt, and the accepted
   security trade-offs of the local-first design. Every item is tagged
   🔴 POC-relevant (worth fixing now) or ⚪ later (safe to defer until this
   has real users or leaves localhost), with a priority order for each.
-- **[`docs/UX-PROPOSAL.md`](docs/UX-PROPOSAL.md)** — the screen-by-screen
+- **[`UX-PROPOSAL.md`](UX-PROPOSAL.md)** — the screen-by-screen
   UX review and five-phase redesign proposal (now shipped; kept as the
   rationale of record).
-- **[`docs/FUTURE-VISION.md`](docs/FUTURE-VISION.md)** — the forward
+- **[`FUTURE-VISION.md`](FUTURE-VISION.md)** — the forward
   roadmap: what could be built next, organized by product pillar.

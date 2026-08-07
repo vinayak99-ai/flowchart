@@ -6,20 +6,20 @@ import os
 from dotenv import load_dotenv
 
 # Load ANTHROPIC_API_KEY / OPENAI_API_KEY / AIPM_MODEL (and any other vars)
-# from config/.env before the agents module constructs its Agent objects,
-# which read the key + model at import time. override=True so config/.env
-# is authoritative -- otherwise python-dotenv's default (override=False)
-# means a stale OS/user-level env var of the same name silently wins over
-# whatever is actually written in config/.env.
-load_dotenv(Path(__file__).resolve().parent.parent / "config" / ".env", override=True)
+# from backend/.env -- the same file Studio's own app/config.py reads --
+# before the agents module constructs its Agent objects, which read the key
+# + model at import time. override=True so .env is authoritative -- otherwise
+# python-dotenv's default (override=False) means a stale OS/user-level env
+# var of the same name silently wins over whatever is actually written there.
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pydantic_ai.exceptions import AgentRunError, ModelHTTPError
 
-import jira_client
-from persistence import (
+from . import jira_client
+from .persistence import (
     create_project, list_projects, get_project, rename_project, delete_project,
     save_artifact, load_artifact, list_artifacts, delete_artifact,
     list_artifact_versions, load_artifact_version,
@@ -28,15 +28,15 @@ from persistence import (
     load_glossary, save_glossary,
     ProjectMeta, Stakeholder, GlossaryTerm
 )
-from agents import (
+from .agents import (
     agent, generation_agent, run_clarify, run_generation, run_diagram,
     run_architecture, run_epics, run_jira_import, run_brief, run_update_composer,
     ExtractedRequirements, ClarifyQuestion, AnsweredClarification, GeneratedPRD,
     ComposedUpdate,
     ROUND_SIZE, MAX_ROUNDS, MAX_TOTAL_QUESTIONS,
 )
-from diffing import diff_prds
-from export import (
+from .diffing import diff_prds
+from .export import (
     export_to_markdown, export_to_docx, export_stories_to_csv, export_epics_to_csv,
     export_brief_to_markdown, export_brief_to_docx,
     export_update_to_markdown, export_update_to_docx,
@@ -47,8 +47,9 @@ app = FastAPI(title="PM Portal API")
 app.add_middleware(
     CORSMiddleware,
     # This app is mounted at /pm on Studio's own backend (see
-    # backend/app/pm_portal_app.py) and its routes are called directly by
-    # Studio's frontend (port 5173) -- both localhost and 127.0.0.1 variants,
+    # backend/app/main.py's app.mount("/pm", spec_builder_app)) and its
+    # routes are called directly by Studio's frontend (port 5173) -- both
+    # localhost and 127.0.0.1 variants,
     # since browsers treat those as different origins for CORS. 3000/5174
     # kept so this still works if ever run standalone again.
     allow_origins=[
@@ -426,7 +427,7 @@ def api_jira_export(project_id: str, artifact_id: str):
             status_code=400,
             detail=(
                 "Jira is not configured. Set JIRA_BASE_URL/JIRA_EMAIL/JIRA_API_TOKEN/"
-                "JIRA_PROJECT_KEY in config/.env."
+                "JIRA_PROJECT_KEY in backend/.env."
             ),
         )
 
@@ -475,7 +476,7 @@ def api_jira_import(project_id: str, artifact_id: str):
             status_code=400,
             detail=(
                 "Jira is not configured. Set JIRA_BASE_URL/JIRA_EMAIL/JIRA_API_TOKEN/"
-                "JIRA_PROJECT_KEY in config/.env."
+                "JIRA_PROJECT_KEY in backend/.env."
             ),
         )
 
@@ -501,7 +502,7 @@ def api_jira_sync(project_id: str, artifact_id: str):
             status_code=400,
             detail=(
                 "Jira is not configured. Set JIRA_BASE_URL/JIRA_EMAIL/JIRA_API_TOKEN/"
-                "JIRA_PROJECT_KEY in config/.env."
+                "JIRA_PROJECT_KEY in backend/.env."
             ),
         )
 

@@ -5,7 +5,7 @@ from app.config import get_settings
 from app.routes.generate import router as generate_router
 from app.routes.sequence import router as sequence_router
 from app.routes.infographic import router as infographic_router
-from app.pm_portal_app import pm_portal_app
+from app.spec_builder.main import app as spec_builder_app
 
 settings = get_settings()
 
@@ -24,6 +24,6 @@ app.include_router(sequence_router)
 app.include_router(infographic_router)
 
 # Spec Builder's own FastAPI app, routed at /pm/* -- e.g. /pm/projects. It
-# keeps its own CORS middleware (pm-portal/backend/main.py), which already
+# keeps its own CORS middleware (app/spec_builder/main.py), which already
 # covers Studio's frontend origin.
-app.mount("/pm", pm_portal_app)
+app.mount("/pm", spec_builder_app)

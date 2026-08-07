@@ -1,6 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic-ai
-python-docx
-python-dotenv
-jira

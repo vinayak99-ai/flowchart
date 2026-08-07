@@ -23,7 +23,7 @@ def _client() -> JIRA:
     if not is_configured():
         raise JiraNotConfigured(
             "Jira is not configured. Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, "
-            "and JIRA_PROJECT_KEY in config/.env."
+            "and JIRA_PROJECT_KEY in backend/.env."
         )
     return JIRA(server=JIRA_BASE_URL, basic_auth=(JIRA_EMAIL, JIRA_API_TOKEN))
 

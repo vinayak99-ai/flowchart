@@ -140,7 +140,7 @@ def save_artifact(project_id: str, prd, artifact_id: str = None, reason: str = "
     return artifact_id
 
 def load_artifact(project_id: str, artifact_id: str):
-    from agents import GeneratedPRD
+    from .agents import GeneratedPRD
     path = _project_dir(project_id) / "artifacts" / f"{artifact_id}.json"
     return GeneratedPRD.model_validate_json(path.read_text())
 
@@ -157,7 +157,7 @@ def list_artifact_versions(project_id: str, artifact_id: str) -> list[ArtifactVe
     return metas
 
 def load_artifact_version(project_id: str, artifact_id: str, version: int):
-    from agents import GeneratedPRD
+    from .agents import GeneratedPRD
     path = _versions_dir(project_id, artifact_id) / f"v{version:04d}.json"
     data = json.loads(path.read_text())
     return GeneratedPRD.model_validate(data["prd"])
@@ -193,7 +193,7 @@ def save_pending_clarification(
     path.write_text(json.dumps(data, indent=2))
 
 def load_pending_clarification(project_id: str) -> PendingClarification | None:
-    from agents import ExtractedRequirements, ClarifyQuestion, AnsweredClarification
+    from .agents import ExtractedRequirements, ClarifyQuestion, AnsweredClarification
 
     path = _project_dir(project_id) / "pending_clarification.json"
     if not path.exists():

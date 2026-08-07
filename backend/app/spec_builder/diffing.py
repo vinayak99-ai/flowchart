@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from agents import GeneratedPRD
+from .agents import GeneratedPRD
 
 
 class DiffEntry(BaseModel):

@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 
-from persistence import GlossaryTerm
+from .persistence import GlossaryTerm
 
 # ---------- Model / provider config ----------
 # pydantic-ai dispatches on the "<provider>:<model>" prefix and reads the
@@ -787,7 +787,7 @@ def _enriched_epic_story(raw_story: dict, enriched_by_key: dict[str, EnrichedSto
     )
 
 def run_jira_import(prd: GeneratedPRD) -> tuple[list[Epic], list[str]]:
-    from jira_client import fetch_project_epics_and_stories
+    from .jira_client import fetch_project_epics_and_stories
 
     raw_epics, unlinked = fetch_project_epics_and_stories()
 

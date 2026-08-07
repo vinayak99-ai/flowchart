@@ -18,7 +18,7 @@ import type {
 } from "./types"
 
 // Spec Builder's backend is mounted at /pm on the same Studio API process
-// (see backend/app/main.py's app.mount("/pm", pm_portal_app)).
+// (see backend/app/main.py's app.mount("/pm", spec_builder_app)).
 export const API_BASE = import.meta.env.VITE_PM_API_BASE ?? "http://localhost:8000/pm"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
