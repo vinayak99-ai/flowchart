@@ -8,8 +8,8 @@ interface RailProps {
 export function Rail({ activeTool, onSelect }: RailProps) {
   return (
     <aside className="flex w-16 shrink-0 flex-col items-center gap-1.5 border-r border-neutral-200 bg-white py-4 dark:border-neutral-800 dark:bg-neutral-950">
-      <div className="mb-4 flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-primary font-mono text-sm font-bold text-white">
-        S
+      <div className="mb-4 flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-primary font-mono text-xs font-bold text-white">
+        PS
       </div>
       {TOOLS.map((tool) => {
         const Icon = tool.icon

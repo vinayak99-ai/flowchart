@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 # Load ANTHROPIC_API_KEY / OPENAI_API_KEY / AIPM_MODEL (and any other vars)
-# from backend/.env -- the same file Studio's own app/config.py reads --
+# from backend/.env -- the same file Product Studio's own app/config.py reads --
 # before the agents module constructs its Agent objects, which read the key
 # + model at import time. override=True so .env is authoritative -- otherwise
 # python-dotenv's default (override=False) means a stale OS/user-level env
@@ -46,9 +46,9 @@ app = FastAPI(title="PM Portal API")
 
 app.add_middleware(
     CORSMiddleware,
-    # This app is mounted at /pm on Studio's own backend (see
+    # This app is mounted at /pm on Product Studio's own backend (see
     # backend/app/main.py's app.mount("/pm", spec_builder_app)) and its
-    # routes are called directly by Studio's frontend (port 5173) -- both
+    # routes are called directly by Product Studio's frontend (port 5173) -- both
     # localhost and 127.0.0.1 variants,
     # since browsers treat those as different origins for CORS. 3000/5174
     # kept so this still works if ever run standalone again.

@@ -1,15 +1,15 @@
 # Spec Builder
 
-A Studio tool, not a separate app: its backend is
+A Product Studio tool, not a separate app: its backend is
 [`backend/app/spec_builder/`](../../backend/app/spec_builder) (mounted at
-`/pm` on Studio's single FastAPI process, see
+`/pm` on Product Studio's single FastAPI process, see
 [`backend/app/main.py`](../../backend/app/main.py)) and its frontend is
 [`frontend/src/features/spec-builder/`](../../frontend/src/features/spec-builder)
-(Studio's own React app). One backend process, one frontend build, one
+(Product Studio's own React app). One backend process, one frontend build, one
 `backend/.env` — see the root [`README.md`](../../README.md) for how to run
-Studio as a whole. This doc covers what Spec Builder actually does; originally
+Product Studio as a whole. This doc covers what Spec Builder actually does; originally
 built as a standalone tool ([`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm))
-and folded into Studio as native code, not an embedded app.
+and folded into Product Studio as native code, not an embedded app.
 
 An AI-assisted tool for product managers: paste raw notes about a feature or
 project, answer a short round of clarifying questions, and get back a
@@ -23,7 +23,7 @@ credential storage; your data lives in plain JSON files on your own machine.
 
 ## Setup
 
-Set your model + API key in Studio's one `backend/.env` (see the root
+Set your model + API key in Product Studio's one `backend/.env` (see the root
 [`README.md`](../../README.md#backend-setup) for the full variable table):
 
 ```bash
@@ -266,7 +266,7 @@ backend/app/spec_builder/   FastAPI + PydanticAI (extraction -> clarify -> gener
                              architecture -> epics, plus diagram/brief/update/enrichment
                              agents) -- an ordinary package, imported and mounted at /pm
                              by backend/app/main.py, not run standalone
-frontend/src/features/spec-builder/   Studio's own React app for this tool
+frontend/src/features/spec-builder/   Product Studio's own React app for this tool
 ```
 
 Provider-agnostic model config: `AIPM_MODEL=anthropic:claude-sonnet-5` or
@@ -277,7 +277,7 @@ string) — set once in `backend/.env`, no code changes.
 
 Originally built as a standalone app
 ([`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm)), then merged
-into Studio as native code in two passes: first vendored in and run as a
+into Product Studio as native code in two passes: first vendored in and run as a
 second mounted FastAPI app + separate frontend build, then folded all the way
 down into one backend package (`backend/app/spec_builder/`, ordinary relative
 imports, no `sys.path` tricks) and one shared `backend/.env` alongside
@@ -291,12 +291,12 @@ worth knowing:
   `127.0.0.1` are different origins to a browser, so both are allowlisted in
   both layers.
 - **Design tokens**: the shadcn component library's CSS custom properties
-  were merged into Studio's own `frontend/src/index.css`, *except*
+  were merged into Product Studio's own `frontend/src/index.css`, *except*
   `--primary`/`--accent` (and their `@theme inline` mappings) — those two
-  names already existed in Studio's own token set (`--color-primary`,
+  names already existed in Product Studio's own token set (`--color-primary`,
   `--color-accent`, swapped at runtime by `lib/themes.ts`), so every shadcn
   component's `bg-primary`/`text-primary`/`bg-accent`/etc. resolves through
-  Studio's actual brand color instead of shadcn's default grayscale, without
+  Product Studio's actual brand color instead of shadcn's default grayscale, without
   editing any component. `--primary-foreground`/`--accent-foreground` are
   pinned to a constant value in both light and dark (rather than flipping
   the way upstream shadcn's do), since they're paired with a fixed saturated

@@ -39,7 +39,7 @@ function App() {
 
   useEffect(() => {
     // Scoped to this tool's own subtree (not document.documentElement) so
-    // picking a diagram theme here can't bleed into Studio's shell (Rail,
+    // picking a diagram theme here can't bleed into Product Studio's shell (Rail,
     // TopBar) or into other tools like Spec Builder, which share the same
     // --color-primary/--color-accent token names for their own branding.
     if (flowchartRootRef.current) {

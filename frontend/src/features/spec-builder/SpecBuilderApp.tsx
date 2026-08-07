@@ -35,8 +35,8 @@ export function SpecBuilderApp() {
 
   return (
     <ToastProvider>
-      {/* No outer header/title here — this app is embedded as a Studio tool
-          panel, and Studio's own Rail + breadcrumb already frame it. Only
+      {/* No outer header/title here — this app is embedded as a Product Studio tool
+          panel, and Product Studio's own Rail + breadcrumb already frame it. Only
           the density/theme controls are kept, since those are genuinely
           this tool's own settings, not app-level chrome. */}
       <div className="min-h-svh bg-background text-foreground">

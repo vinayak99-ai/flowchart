@@ -1,6 +1,6 @@
-# Studio
+# Product Studio
 
-A local, multi-tool web workspace for product management. Studio's shell is a left icon
+A local, multi-tool web workspace for product management. Product Studio's shell is a left icon
 rail for switching between tools (see the `Rail` and `TOOLS` registry in
 `frontend/src/lib/tools.ts`):
 
@@ -11,7 +11,7 @@ rail for switching between tools (see the `Rail` and `TOOLS` registry in
 - **Spec Builder** — turns raw notes into a structured spec (user stories, requirements,
   architecture decisions, Jira-ready epics), plus diagrams, stakeholder briefs, and a
   two-way Jira sync. Originally [`vinayak99-ai/aipm`](https://github.com/vinayak99-ai/aipm),
-  now merged into Studio as native code — one backend package
+  now merged into Product Studio as native code — one backend package
   (`backend/app/spec_builder/`), one frontend feature
   (`frontend/src/features/spec-builder/`) — see
   [`docs/spec-builder/README.md`](docs/spec-builder/README.md) for its full feature docs.
@@ -24,9 +24,9 @@ and data flow.
 ## Project layout
 
 ```
-backend/      Studio's one FastAPI process: Flowchart Builder's own routes (/api/*) plus
+backend/      Product Studio's one FastAPI process: Flowchart Builder's own routes (/api/*) plus
               Spec Builder's app (backend/app/spec_builder/) mounted at /pm/*
-frontend/     Studio's one React app: the rail-nav shell, Flowchart Builder, and Spec
+frontend/     Product Studio's one React app: the rail-nav shell, Flowchart Builder, and Spec
               Builder (frontend/src/features/spec-builder/)
 docs/         Flowchart Builder's architecture doc, plus Spec Builder's full feature/
               known-issues/roadmap docs under docs/spec-builder/
@@ -70,11 +70,11 @@ Then open http://localhost:5173 — this is the whole app now, Flowchart Builder
 Spec Builder both, one process. The backend must be running (with both env files set up
 above) for either tool to actually generate anything.
 
-## Navigating Studio
+## Navigating Product Studio
 
 The left rail is the only navigation — no separate menus per tool. Each icon is a tool
 from the `TOOLS` registry (`frontend/src/lib/tools.ts`); a small dot marks the ones still
-"Soon" (Report Generator, Data Explorer). The breadcrumb at the top ("Studio / Flowchart
+"Soon" (Report Generator, Data Explorer). The breadcrumb at the top ("Product Studio / Flowchart
 Builder") just reflects whichever tool is active.
 
 Switching tools doesn't unmount them — Flowchart Builder and Spec Builder both stay

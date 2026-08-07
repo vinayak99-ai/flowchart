@@ -17,7 +17,7 @@ import type {
   UpdateAudience,
 } from "./types"
 
-// Spec Builder's backend is mounted at /pm on the same Studio API process
+// Spec Builder's backend is mounted at /pm on the same Product Studio API process
 // (see backend/app/main.py's app.mount("/pm", spec_builder_app)).
 export const API_BASE = import.meta.env.VITE_PM_API_BASE ?? "http://localhost:8000/pm"
 

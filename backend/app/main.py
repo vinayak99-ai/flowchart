@@ -9,7 +9,7 @@ from app.spec_builder.main import app as spec_builder_app
 
 settings = get_settings()
 
-app = FastAPI(title="Studio API")
+app = FastAPI(title="Product Studio API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,5 +25,5 @@ app.include_router(infographic_router)
 
 # Spec Builder's own FastAPI app, routed at /pm/* -- e.g. /pm/projects. It
 # keeps its own CORS middleware (app/spec_builder/main.py), which already
-# covers Studio's frontend origin.
+# covers Product Studio's frontend origin.
 app.mount("/pm", spec_builder_app)
