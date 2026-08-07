@@ -1,5 +1,6 @@
 import io
 import math
+from typing import Callable
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -8,6 +9,7 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Inches, Pt
 
 from app.infographic_models import (
+    BULLET_MAX_COUNT,
     COMPARISON_MAX_COLUMNS,
     COMPARISON_POINT_COUNT,
     PYRAMID_MAX_PILLARS,
@@ -15,7 +17,9 @@ from app.infographic_models import (
     ROADMAP_COLUMN_COUNT,
     ROADMAP_ITEM_COUNT,
     TIMELINE_MAX_MILESTONES,
+    BulletSummarySlide,
     InfographicComparison,
+    InfographicDiagram,
     InfographicPyramid,
     InfographicRoadmap,
     InfographicTimeline,
@@ -79,6 +83,26 @@ TIMELINE_CARD_H_IN = 1.7
 TIMELINE_CONNECTOR_H_IN = 0.35
 TIMELINE_COLORS = ["3D5A80", "6B9B52", "C9457A", "E8A33D", "2A9D8F", "8859A3"]
 
+BULLET_TITLE_Y_IN = 0.6
+BULLET_LIST_TOP_IN = 1.7
+BULLET_LIST_LEFT_IN = 1.5
+BULLET_LIST_WIDTH_IN = 10.3
+BULLET_ROW_H_IN = 0.85
+BULLET_ACCENT_COLOR = "3D5A80"
+
+
+def _new_presentation() -> Presentation:
+    prs = Presentation()
+    prs.slide_width = Inches(SLIDE_W_IN)
+    prs.slide_height = Inches(SLIDE_H_IN)
+    return prs
+
+
+def _save_bytes(prs: Presentation) -> bytes:
+    buffer = io.BytesIO()
+    prs.save(buffer)
+    return buffer.getvalue()
+
 
 def _polar(cx: float, cy: float, r: float, degrees: float) -> tuple[float, float]:
     rad = math.radians(degrees)
@@ -111,7 +135,13 @@ def _add_label(slide, x_in: float, y_in: float, w_in: float, text: str, *, size:
     return box
 
 
-def build_wheel_pptx(data: InfographicWheel) -> bytes:
+def _add_background(slide, prs: Presentation) -> None:
+    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
+    _set_fill(bg, "FAF9F6")
+    bg.shadow.inherit = False
+
+
+def add_wheel_slide(prs: Presentation, data: InfographicWheel) -> None:
     """Populates the fixed 5-slot radial-wheel geometry with generated content.
 
     Deliberately built with PIE shapes (a solid slice from the true circle
@@ -126,15 +156,8 @@ def build_wheel_pptx(data: InfographicWheel) -> bytes:
     items = data.items[:5]
     items += [WheelItem(label="", description="") for _ in range(5 - len(items))]
 
-    prs = Presentation()
-    prs.slide_width = Inches(SLIDE_W_IN)
-    prs.slide_height = Inches(SLIDE_H_IN)
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-
-    # Background
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-    _set_fill(bg, "FAF9F6")
-    bg.shadow.inherit = False
+    _add_background(slide, prs)
 
     step = 36  # 180 degrees / 5 wedges
     start = -90
@@ -222,12 +245,14 @@ def build_wheel_pptx(data: InfographicWheel) -> bytes:
         run.font.color.rgb = RGBColor.from_string("FFF7EC")
         run.font.name = "Arial"
 
-    buffer = io.BytesIO()
-    prs.save(buffer)
-    return buffer.getvalue()
+
+def build_wheel_pptx(data: InfographicWheel) -> bytes:
+    prs = _new_presentation()
+    add_wheel_slide(prs, data)
+    return _save_bytes(prs)
 
 
-def build_roadmap_pptx(data: InfographicRoadmap) -> bytes:
+def add_roadmap_slide(prs: Presentation, data: InfographicRoadmap) -> None:
     """A Now/Next/Later roadmap: 3 fixed columns rendered with decreasing
     visual weight (dark to light, same hue) so closer-term horizons read
     as visually "stronger", plus a connecting rail with a dot per column
@@ -241,14 +266,8 @@ def build_roadmap_pptx(data: InfographicRoadmap) -> bytes:
         for i in range(ROADMAP_COLUMN_COUNT - len(columns))
     ]
 
-    prs = Presentation()
-    prs.slide_width = Inches(SLIDE_W_IN)
-    prs.slide_height = Inches(SLIDE_H_IN)
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-    _set_fill(bg, "FAF9F6")
-    bg.shadow.inherit = False
+    _add_background(slide, prs)
 
     _add_label(
         slide, SLIDE_W_IN / 2, ROADMAP_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
@@ -336,12 +355,14 @@ def build_roadmap_pptx(data: InfographicRoadmap) -> bytes:
             run.font.color.rgb = RGBColor.from_string("2A2E29")
             run.font.name = "Arial"
 
-    buffer = io.BytesIO()
-    prs.save(buffer)
-    return buffer.getvalue()
+
+def build_roadmap_pptx(data: InfographicRoadmap) -> bytes:
+    prs = _new_presentation()
+    add_roadmap_slide(prs, data)
+    return _save_bytes(prs)
 
 
-def build_pyramid_pptx(data: InfographicPyramid) -> bytes:
+def add_pyramid_slide(prs: Presentation, data: InfographicPyramid) -> None:
     """A vision/strategy pyramid.
 
     The vision statement runs as a full-width headline above the graphic
@@ -360,14 +381,8 @@ def build_pyramid_pptx(data: InfographicPyramid) -> bytes:
         ]
     total_bands = 1 + len(pillars)
 
-    prs = Presentation()
-    prs.slide_width = Inches(SLIDE_W_IN)
-    prs.slide_height = Inches(SLIDE_H_IN)
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-    _set_fill(bg, "FAF9F6")
-    bg.shadow.inherit = False
+    _add_background(slide, prs)
 
     _add_label(
         slide, SLIDE_W_IN / 2, PYRAMID_HEADLINE_Y_IN, SLIDE_W_IN - 2.4, data.vision,
@@ -440,12 +455,14 @@ def build_pyramid_pptx(data: InfographicPyramid) -> bytes:
             run.font.color.rgb = RGBColor.from_string("F2EFE8")
             run.font.name = "Arial"
 
-    buffer = io.BytesIO()
-    prs.save(buffer)
-    return buffer.getvalue()
+
+def build_pyramid_pptx(data: InfographicPyramid) -> bytes:
+    prs = _new_presentation()
+    add_pyramid_slide(prs, data)
+    return _save_bytes(prs)
 
 
-def build_timeline_pptx(data: InfographicTimeline) -> bytes:
+def add_timeline_slide(prs: Presentation, data: InfographicTimeline) -> None:
     """4-6 dated milestones along a single horizontal line, with callout
     cards alternating above/below the line so neighboring cards don't
     overlap each other.
@@ -453,14 +470,8 @@ def build_timeline_pptx(data: InfographicTimeline) -> bytes:
     milestones = data.milestones[:TIMELINE_MAX_MILESTONES]
     n = max(len(milestones), 1)
 
-    prs = Presentation()
-    prs.slide_width = Inches(SLIDE_W_IN)
-    prs.slide_height = Inches(SLIDE_H_IN)
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-    _set_fill(bg, "FAF9F6")
-    bg.shadow.inherit = False
+    _add_background(slide, prs)
 
     _add_label(
         slide, SLIDE_W_IN / 2, TIMELINE_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
@@ -555,12 +566,14 @@ def build_timeline_pptx(data: InfographicTimeline) -> bytes:
             run.font.color.rgb = RGBColor.from_string("5B5A52")
             run.font.name = "Arial"
 
-    buffer = io.BytesIO()
-    prs.save(buffer)
-    return buffer.getvalue()
+
+def build_timeline_pptx(data: InfographicTimeline) -> bytes:
+    prs = _new_presentation()
+    add_timeline_slide(prs, data)
+    return _save_bytes(prs)
 
 
-def build_comparison_pptx(data: InfographicComparison) -> bytes:
+def add_comparison_slide(prs: Presentation, data: InfographicComparison) -> None:
     """Populates a side-by-side comparison layout with 2-4 columns.
 
     Unlike the wheel's fixed 5-slot geometry, column count here is
@@ -571,14 +584,8 @@ def build_comparison_pptx(data: InfographicComparison) -> bytes:
     columns = data.columns[:COMPARISON_MAX_COLUMNS]
     count = max(len(columns), 1)
 
-    prs = Presentation()
-    prs.slide_width = Inches(SLIDE_W_IN)
-    prs.slide_height = Inches(SLIDE_H_IN)
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-
-    bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
-    _set_fill(bg, "FAF9F6")
-    bg.shadow.inherit = False
+    _add_background(slide, prs)
 
     _add_label(
         slide, SLIDE_W_IN / 2, COMPARISON_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
@@ -648,6 +655,81 @@ def build_comparison_pptx(data: InfographicComparison) -> bytes:
             run.font.color.rgb = RGBColor.from_string("2A2E29")
             run.font.name = "Arial"
 
-    buffer = io.BytesIO()
-    prs.save(buffer)
-    return buffer.getvalue()
+
+def build_comparison_pptx(data: InfographicComparison) -> bytes:
+    prs = _new_presentation()
+    add_comparison_slide(prs, data)
+    return _save_bytes(prs)
+
+
+def add_bullet_slide(prs: Presentation, data: BulletSummarySlide) -> None:
+    """The flexible fallback slide: a plain title + bullet list, for content
+    that doesn't fit any of the shaped templates. Bullets are hand-drawn as
+    a colored dot + text row rather than PowerPoint's native bullet-list XML,
+    matching the dot-bullet style already used by the comparison/roadmap
+    list rows for visual consistency.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, BULLET_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
+        size=26, bold=True, color="1B1F1C", h_in=0.7,
+    )
+
+    bullets = data.bullets[:BULLET_MAX_COUNT]
+    for i, bullet in enumerate(bullets):
+        row_y = BULLET_LIST_TOP_IN + i * BULLET_ROW_H_IN
+        dot = slide.shapes.add_shape(
+            MSO_SHAPE.OVAL,
+            Inches(BULLET_LIST_LEFT_IN), Inches(row_y + BULLET_ROW_H_IN / 2 - 0.06),
+            Inches(0.12), Inches(0.12),
+        )
+        _set_fill(dot, BULLET_ACCENT_COLOR)
+        dot.shadow.inherit = False
+
+        text_box = slide.shapes.add_textbox(
+            Inches(BULLET_LIST_LEFT_IN + 0.4), Inches(row_y),
+            Inches(BULLET_LIST_WIDTH_IN - 0.4), Inches(BULLET_ROW_H_IN),
+        )
+        tf = text_box.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = bullet
+        run.font.size = Pt(16)
+        run.font.color.rgb = RGBColor.from_string("2A2E29")
+        run.font.name = "Arial"
+
+
+def build_bullets_pptx(data: BulletSummarySlide) -> bytes:
+    prs = _new_presentation()
+    add_bullet_slide(prs, data)
+    return _save_bytes(prs)
+
+
+_DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
+    "radial_wheel": add_wheel_slide,
+    "comparison_columns": add_comparison_slide,
+    "now_next_later": add_roadmap_slide,
+    "vision_pyramid": add_pyramid_slide,
+    "quarterly_timeline": add_timeline_slide,
+    "bullet_summary": add_bullet_slide,
+}
+
+
+def build_deck_pptx(slides: list[InfographicDiagram]) -> bytes:
+    """Assembles every planned slide into a single deck, in order. Each
+    slide keeps its own template's exact visual design -- this only changes
+    the outer scaffolding from "one Presentation per template" to "one
+    Presentation shared across all of them."
+    """
+    prs = _new_presentation()
+    for slide_data in slides:
+        _DECK_SLIDE_BUILDERS[slide_data.template](prs, slide_data)
+    return _save_bytes(prs)

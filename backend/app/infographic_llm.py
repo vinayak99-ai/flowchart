@@ -1,18 +1,28 @@
+import asyncio
+from typing import Awaitable, Callable
+
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from app.config import get_settings
 from app.infographic_models import (
+    BULLET_MAX_COUNT,
+    BULLET_MIN_COUNT,
     COMPARISON_MAX_COLUMNS,
     COMPARISON_MIN_COLUMNS,
     COMPARISON_POINT_COUNT,
+    DECK_MAX_SLIDES,
+    DECK_MIN_SLIDES,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     ROADMAP_COLUMN_COUNT,
     ROADMAP_ITEM_COUNT,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
+    BulletSummarySlide,
+    DeckPlan,
     InfographicComparison,
+    InfographicDiagram,
     InfographicPyramid,
     InfographicRoadmap,
     InfographicTemplateId,
@@ -21,12 +31,7 @@ from app.infographic_models import (
     WHEEL_ITEM_COUNT,
 )
 
-CLASSIFY_SYSTEM_PROMPT = """You are an infographic designer for a product management tool. \
-Given source material and a user prompt, decide which fixed-layout infographic template best \
-fits the content, before anything is generated.
-
-Templates:
-- radial_wheel: a single central theme with exactly 5 co-equal facets, stages, or pillars \
+TEMPLATE_CATALOG = """- radial_wheel: a single central theme with exactly 5 co-equal facets, stages, or pillars \
 arranged around it (e.g. a 5-step process, the 5 pillars of a strategy). Best when the items \
 are parts of one whole, not alternatives or a time-ordered sequence.
 - comparison_columns: 2 to 4 options, plans, or approaches that should be compared side by \
@@ -40,9 +45,19 @@ Best for strategy or "why we exist" content, not for listing individual features
 - quarterly_timeline: 4-6 dated milestones along a single timeline (quarters, months, or named \
 phases with dates). Best when the material gives specific time markers for each item, unlike \
 now_next_later which has no dates.
+- bullet_summary: a plain title + a short bullet list. Use this whenever content doesn't \
+cleanly fit any of the shaped templates above -- it's the flexible fallback, not a last resort \
+to avoid; forcing a poor fit into a shaped template is worse than a clean bullet list."""
 
-Pick the single best-fitting template. If the material doesn't clearly fit any of them, prefer \
-whichever one loses the least information.
+CLASSIFY_SYSTEM_PROMPT = f"""You are an infographic designer for a product management tool. \
+Given source material and a user prompt, decide which fixed-layout infographic template best \
+fits the content, before anything is generated.
+
+Templates:
+{TEMPLATE_CATALOG}
+
+Pick the single best-fitting template. If the material doesn't clearly fit one of the shaped \
+templates, use bullet_summary rather than forcing a poor fit.
 """
 
 
@@ -260,9 +275,43 @@ async def generate_infographic_timeline(material: str, prompt: str) -> Infograph
     return parsed
 
 
+BULLET_SYSTEM_PROMPT = f"""You are an infographic designer building a plain summary slide -- the \
+flexible fallback used when content doesn't fit a more specific visual shape. Given source \
+material and a user prompt, derive a title + bullet list as JSON matching the provided schema.
+
+Rules:
+- `title` is a short 1-6 word name for what this slide covers.
+- `bullets` must contain between {BULLET_MIN_COUNT} and {BULLET_MAX_COUNT} entries, each a \
+short phrase (under 14 words), in a sensible reading order.
+- Base everything on what the source material actually describes. Do not invent points that \
+aren't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_bullets(material: str, prompt: str) -> BulletSummarySlide:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": BULLET_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=BulletSummarySlide,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed summary.")
+    return parsed
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
-) -> InfographicWheel | InfographicComparison | InfographicRoadmap | InfographicPyramid | InfographicTimeline:
+) -> InfographicDiagram:
     if template == "comparison_columns":
         return await generate_infographic_comparison(material, prompt)
     if template == "now_next_later":
@@ -271,4 +320,98 @@ async def generate_infographic(
         return await generate_infographic_pyramid(material, prompt)
     if template == "quarterly_timeline":
         return await generate_infographic_timeline(material, prompt)
+    if template == "bullet_summary":
+        return await generate_infographic_bullets(material, prompt)
     return await generate_infographic_wheel(material, prompt)
+
+
+PLAN_SYSTEM_PROMPT = f"""You are an infographic designer for a product management tool. Given a \
+full document (e.g. a PRD) and a user prompt, plan a slide deck that turns the document into a \
+sequence of {DECK_MIN_SLIDES}-{DECK_MAX_SLIDES} infographic slides.
+
+Available templates:
+{TEMPLATE_CATALOG}
+
+Rules:
+- Pick the most information-dense, decision-relevant sections of the document -- vision, goals, \
+roadmap, comparisons/options, key milestones, prioritized initiatives -- rather than mechanically \
+producing one slide per heading. Skip filler content (revision history, boilerplate).
+- `deck_title` is a short 2-6 word name for the whole deck.
+- Each slide needs a `template` (one of the ids above) and a `topic`: a short, specific \
+description of what that slide should cover (e.g. "Q1-Q3 rollout phases with dates"), detailed \
+enough that a separate step can generate that slide's content from just this topic plus the \
+full document.
+- Use bullet_summary for any section worth a slide that doesn't cleanly fit a shaped template. \
+Don't force content into the wrong shape.
+- Produce between {DECK_MIN_SLIDES} and {DECK_MAX_SLIDES} slides total.
+"""
+
+
+async def plan_deck(material: str, prompt: str) -> DeckPlan:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source document:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": PLAN_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=DeckPlan,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed deck plan.")
+    return parsed
+
+
+async def generate_deck_slide(material: str, prompt: str, template: InfographicTemplateId, topic: str) -> InfographicDiagram:
+    """Generates one slide's content, reusing the same per-template generators
+    as single-infographic generation -- the plan step only decides shape and
+    topic, not content, so no new content-generation prompts are needed."""
+    scoped_prompt = f"{prompt}\n\nThis slide should focus specifically on: {topic}"
+    return await generate_infographic(template, material, scoped_prompt)
+
+
+async def _generate_indexed_slide(
+    i: int, material: str, prompt: str, template: InfographicTemplateId, topic: str
+) -> tuple[int, InfographicDiagram]:
+    diagram = await generate_deck_slide(material, prompt, template, topic)
+    return i, diagram
+
+
+async def generate_deck(
+    material: str,
+    prompt: str,
+    plan: DeckPlan,
+    on_slide_done: Callable[[int, int], Awaitable[None]] | None = None,
+) -> list[InfographicDiagram]:
+    # Independent per-slide calls, so they run concurrently rather than
+    # paying N sequential round-trips for an N-slide deck. as_completed (not
+    # gather) lets the caller report progress as each slide finishes; the
+    # index is baked into each task's own return value (not looked up by
+    # task identity afterward) since as_completed yields wrapper coroutines,
+    # not the original task objects. Results are assembled back into the
+    # original plan order -- slide order in the deck must match the plan,
+    # not completion order.
+    total = len(plan.slides)
+    tasks = [
+        asyncio.ensure_future(
+            _generate_indexed_slide(i, material, prompt, slide_plan.template, slide_plan.topic)
+        )
+        for i, slide_plan in enumerate(plan.slides)
+    ]
+
+    results: list[InfographicDiagram | None] = [None] * total
+    completed = 0
+    for task in asyncio.as_completed(tasks):
+        i, diagram = await task
+        results[i] = diagram
+        completed += 1
+        if on_slide_done:
+            await on_slide_done(completed, total)
+
+    return [slide for slide in results if slide is not None]

@@ -1,58 +1,11 @@
 import { useState } from 'react'
 import { exportInfographicPptx } from '../lib/api'
 import type { InfographicDiagram } from '../infographicTypes'
-import { WheelPreview } from './infographic/WheelPreview'
-import { ComparisonPreview } from './infographic/ComparisonPreview'
-import { RoadmapPreview } from './infographic/RoadmapPreview'
-import { PyramidPreview } from './infographic/PyramidPreview'
-import { TimelinePreview } from './infographic/TimelinePreview'
+import { TEMPLATE_LABEL, renderInfographicPreview } from './infographic/previewRegistry'
 
 interface InfographicCanvasProps {
   diagram: InfographicDiagram | null
   onDiagramChange: (diagram: InfographicDiagram) => void
-}
-
-const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
-  radial_wheel: 'Radial wheel',
-  comparison_columns: 'Comparison columns',
-  now_next_later: 'Now/Next/Later roadmap',
-  vision_pyramid: 'Vision pyramid',
-  quarterly_timeline: 'Quarterly timeline',
-}
-
-function renderPreview(diagram: InfographicDiagram, onChange: (diagram: InfographicDiagram) => void) {
-  switch (diagram.template) {
-    case 'radial_wheel':
-      return (
-        <div className="aspect-[31/30] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <WheelPreview wheel={diagram} onChange={onChange} />
-        </div>
-      )
-    case 'comparison_columns':
-      return (
-        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <ComparisonPreview comparison={diagram} onChange={onChange} />
-        </div>
-      )
-    case 'now_next_later':
-      return (
-        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <RoadmapPreview roadmap={diagram} onChange={onChange} />
-        </div>
-      )
-    case 'vision_pyramid':
-      return (
-        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <PyramidPreview pyramid={diagram} onChange={onChange} />
-        </div>
-      )
-    case 'quarterly_timeline':
-      return (
-        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-          <TimelinePreview timeline={diagram} onChange={onChange} />
-        </div>
-      )
-  }
 }
 
 export function InfographicCanvas({ diagram, onDiagramChange }: InfographicCanvasProps) {
@@ -92,7 +45,7 @@ export function InfographicCanvas({ diagram, onDiagramChange }: InfographicCanva
         </button>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center bg-neutral-50 p-8">
-        {diagram ? renderPreview(diagram, onDiagramChange) : (
+        {diagram ? renderInfographicPreview(diagram, onDiagramChange) : (
           <p className="text-sm text-neutral-500">Generate an infographic to see it here.</p>
         )}
       </div>

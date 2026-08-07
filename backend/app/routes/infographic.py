@@ -2,13 +2,22 @@ from fastapi import APIRouter, Response, WebSocket, WebSocketDisconnect
 from openai import OpenAIError
 from pydantic import ValidationError
 
-from app.infographic_llm import classify_infographic_template, generate_infographic
+from app.infographic_llm import (
+    classify_infographic_template,
+    generate_deck,
+    generate_infographic,
+    plan_deck,
+)
 from app.infographic_models import (
+    BULLET_MAX_COUNT,
+    BULLET_MIN_COUNT,
     COMPARISON_MAX_COLUMNS,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
+    BulletSummarySlide,
+    GenerateDeckResponse,
     GenerateInfographicResponse,
     InfographicComparison,
     InfographicDiagram,
@@ -19,7 +28,9 @@ from app.infographic_models import (
     WHEEL_ITEM_COUNT,
 )
 from app.infographic_template import (
+    build_bullets_pptx,
     build_comparison_pptx,
+    build_deck_pptx,
     build_pyramid_pptx,
     build_roadmap_pptx,
     build_timeline_pptx,
@@ -35,12 +46,11 @@ _EXPORT_BUILDERS = {
     "now_next_later": (build_roadmap_pptx, "infographic-roadmap.pptx"),
     "vision_pyramid": (build_pyramid_pptx, "infographic-vision-pyramid.pptx"),
     "quarterly_timeline": (build_timeline_pptx, "infographic-timeline.pptx"),
+    "bullet_summary": (build_bullets_pptx, "infographic-bullets.pptx"),
 }
 
 
-def _validate_infographic(
-    data: InfographicWheel | InfographicComparison | InfographicRoadmap | InfographicPyramid | InfographicTimeline,
-) -> list[ValidationIssue]:
+def _validate_infographic(data: InfographicDiagram) -> list[ValidationIssue]:
     if isinstance(data, InfographicWheel):
         if len(data.items) != WHEEL_ITEM_COUNT:
             return [
@@ -85,14 +95,28 @@ def _validate_infographic(
             ]
         return []
 
-    if not (TIMELINE_MIN_MILESTONES <= len(data.milestones) <= TIMELINE_MAX_MILESTONES):
-        return [
-            ValidationIssue(
-                severity=ValidationSeverity.warning,
-                code="wrong_milestone_count",
-                message=f"Timeline has {len(data.milestones)} milestones; the template supports {TIMELINE_MIN_MILESTONES}-{TIMELINE_MAX_MILESTONES}.",
-            )
-        ]
+    if isinstance(data, InfographicTimeline):
+        if not (TIMELINE_MIN_MILESTONES <= len(data.milestones) <= TIMELINE_MAX_MILESTONES):
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_milestone_count",
+                    message=f"Timeline has {len(data.milestones)} milestones; the template supports {TIMELINE_MIN_MILESTONES}-{TIMELINE_MAX_MILESTONES}.",
+                )
+            ]
+        return []
+
+    if isinstance(data, BulletSummarySlide):
+        if not (BULLET_MIN_COUNT <= len(data.bullets) <= BULLET_MAX_COUNT):
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_bullet_count",
+                    message=f"Summary has {len(data.bullets)} bullets; the template supports {BULLET_MIN_COUNT}-{BULLET_MAX_COUNT}.",
+                )
+            ]
+        return []
+
     return []
 
 
@@ -104,6 +128,16 @@ async def export_infographic_pptx(data: InfographicDiagram) -> Response:
         content=pptx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/infographic/deck/export")
+async def export_deck_pptx(slides: list[InfographicDiagram]) -> Response:
+    pptx_bytes = build_deck_pptx(slides)
+    return Response(
+        content=pptx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": 'attachment; filename="infographic-deck.pptx"'},
     )
 
 
@@ -143,6 +177,58 @@ async def generate_infographic_ws(websocket: WebSocket) -> None:
             issues = _validate_infographic(diagram)
 
             response = GenerateInfographicResponse(diagram=diagram, issues=issues)
+            await websocket.send_json({"stage": "done", "result": response.model_dump()})
+    except WebSocketDisconnect:
+        return
+
+
+@router.websocket("/ws/generate-deck")
+async def generate_deck_ws(websocket: WebSocket) -> None:
+    await websocket.accept()
+    try:
+        while True:
+            payload = await websocket.receive_json()
+            try:
+                request = GenerateRequest.model_validate(payload)
+            except ValidationError as exc:
+                await websocket.send_json({"stage": "error", "message": str(exc)})
+                continue
+
+            await websocket.send_json({"stage": "planning"})
+            try:
+                plan = await plan_deck(request.material, request.prompt)
+            except OpenAIError as exc:
+                await websocket.send_json(
+                    {"stage": "error", "message": f"OpenAI request failed: {exc}"}
+                )
+                continue
+
+            if not plan.slides:
+                await websocket.send_json(
+                    {"stage": "error", "message": "The plan produced no slides."}
+                )
+                continue
+
+            await websocket.send_json({"stage": "plan_ready", "plan": plan.model_dump()})
+
+            async def on_slide_done(completed: int, total: int) -> None:
+                await websocket.send_json(
+                    {"stage": "generating", "completed": completed, "total": total}
+                )
+
+            try:
+                slides = await generate_deck(request.material, request.prompt, plan, on_slide_done)
+            except OpenAIError as exc:
+                await websocket.send_json(
+                    {"stage": "error", "message": f"OpenAI request failed: {exc}"}
+                )
+                continue
+
+            issues: list[ValidationIssue] = []
+            for slide in slides:
+                issues.extend(_validate_infographic(slide))
+
+            response = GenerateDeckResponse(title=plan.deck_title, slides=slides, issues=issues)
             await websocket.send_json({"stage": "done", "result": response.model_dump()})
     except WebSocketDisconnect:
         return

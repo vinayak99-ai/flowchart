@@ -1,6 +1,6 @@
 import type { ExtractResponse, GenerateResponse, WsProgressMessage } from '../types'
 import type { SequenceWsProgressMessage } from '../sequenceTypes'
-import type { InfographicDiagram, InfographicWsProgressMessage } from '../infographicTypes'
+import type { DeckWsProgressMessage, InfographicDiagram, InfographicWsProgressMessage } from '../infographicTypes'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const WS_BASE = API_BASE.replace(/^http/, 'ws')
@@ -90,12 +90,34 @@ export function openInfographicGenerateSocket(
   return () => socket.close()
 }
 
+export function openDeckGenerateSocket(
+  material: string,
+  prompt: string,
+  onMessage: (message: DeckWsProgressMessage) => void,
+  onError: () => void,
+): () => void {
+  const socket = new WebSocket(`${WS_BASE}/api/ws/generate-deck`)
+
+  socket.onopen = () => {
+    socket.send(JSON.stringify({ material, prompt }))
+  }
+  socket.onmessage = (event) => {
+    onMessage(JSON.parse(event.data) as DeckWsProgressMessage)
+  }
+  socket.onerror = () => {
+    onError()
+  }
+
+  return () => socket.close()
+}
+
 const INFOGRAPHIC_FILENAMES: Record<InfographicDiagram['template'], string> = {
   radial_wheel: 'infographic-wheel.pptx',
   comparison_columns: 'infographic-comparison.pptx',
   now_next_later: 'infographic-roadmap.pptx',
   vision_pyramid: 'infographic-vision-pyramid.pptx',
   quarterly_timeline: 'infographic-timeline.pptx',
+  bullet_summary: 'infographic-bullets.pptx',
 }
 
 // The deliverable here is the actual .pptx file (the template, populated
@@ -118,6 +140,24 @@ export async function exportInfographicPptx(diagram: InfographicDiagram): Promis
   const link = document.createElement('a')
   link.href = url
   link.download = INFOGRAPHIC_FILENAMES[diagram.template]
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function exportDeckPptx(slides: InfographicDiagram[]): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/infographic/deck/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(slides),
+  })
+  if (!res.ok) {
+    throw new Error(await res.text())
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'infographic-deck.pptx'
   link.click()
   URL.revokeObjectURL(url)
 }

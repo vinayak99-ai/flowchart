@@ -56,12 +56,19 @@ export interface InfographicTimeline {
   milestones: TimelineMilestone[]
 }
 
+export interface BulletSummarySlide {
+  template: 'bullet_summary'
+  title: string
+  bullets: string[]
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
   | InfographicRoadmap
   | InfographicPyramid
   | InfographicTimeline
+  | BulletSummarySlide
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram
@@ -73,4 +80,27 @@ export type InfographicWsProgressMessage =
   | { stage: 'calling_llm' }
   | { stage: 'validating' }
   | { stage: 'done'; result: GenerateInfographicResponse }
+  | { stage: 'error'; message: string }
+
+export interface DeckSlidePlan {
+  template: InfographicDiagram['template']
+  topic: string
+}
+
+export interface DeckPlan {
+  deck_title: string
+  slides: DeckSlidePlan[]
+}
+
+export interface GenerateDeckResponse {
+  title: string
+  slides: InfographicDiagram[]
+  issues: ValidationIssue[]
+}
+
+export type DeckWsProgressMessage =
+  | { stage: 'planning' }
+  | { stage: 'plan_ready'; plan: DeckPlan }
+  | { stage: 'generating'; completed: number; total: number }
+  | { stage: 'done'; result: GenerateDeckResponse }
   | { stage: 'error'; message: string }

@@ -1,13 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { extractFile, openInfographicGenerateSocket } from '../lib/api'
-import type { GenerateInfographicResponse, InfographicWsProgressMessage } from '../infographicTypes'
+import { extractFile, openDeckGenerateSocket, openInfographicGenerateSocket } from '../lib/api'
+import type {
+  DeckWsProgressMessage,
+  GenerateDeckResponse,
+  GenerateInfographicResponse,
+  InfographicWsProgressMessage,
+} from '../infographicTypes'
 import type { ValidationIssue } from '../types'
 import { IssuesPanel } from './IssuesPanel'
 
-type Status = 'idle' | 'classifying' | 'calling_llm' | 'validating' | 'done' | 'error'
+export type InfographicMode = 'single' | 'deck'
+
+type Status =
+  | 'idle'
+  | 'classifying'
+  | 'calling_llm'
+  | 'validating'
+  | 'planning'
+  | 'generating'
+  | 'done'
+  | 'error'
 
 interface InfographicSidebarProps {
+  mode: InfographicMode
+  onModeChange: (mode: InfographicMode) => void
   onResult: (result: GenerateInfographicResponse) => void
+  onDeckResult: (result: GenerateDeckResponse) => void
   issues: ValidationIssue[]
 }
 
@@ -16,17 +34,20 @@ const STATUS_LABEL: Record<Status, string> = {
   classifying: 'Choosing a template…',
   calling_llm: 'Calling OpenAI…',
   validating: 'Validating structure…',
-  done: 'Infographic ready.',
+  planning: 'Planning slides…',
+  generating: 'Generating slides…',
+  done: 'Ready.',
   error: 'Something went wrong.',
 }
 
-export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps) {
+export function InfographicSidebar({ mode, onModeChange, onResult, onDeckResult, issues }: InfographicSidebarProps) {
   const [tab, setTab] = useState<'paste' | 'upload'>('paste')
   const [material, setMaterial] = useState('')
   const [prompt, setPrompt] = useState('')
   const [fileName, setFileName] = useState<string | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
+  const [deckProgress, setDeckProgress] = useState<{ completed: number; total: number } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const closeSocketRef = useRef<(() => void) | null>(null)
 
@@ -50,13 +71,8 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
     }
   }, [])
 
-  const handleGenerate = useCallback(() => {
-    if (!material.trim() || !prompt.trim()) {
-      setErrorMessage('Add source material and a prompt before generating.')
-      return
-    }
-
-    setErrorMessage(null)
+  const handleGenerateSingle = useCallback(() => {
+    setDeckProgress(null)
     setStatus('classifying')
     closeSocketRef.current?.()
 
@@ -84,8 +100,61 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
     closeSocketRef.current = openInfographicGenerateSocket(material, prompt, onMessage, onError)
   }, [material, prompt, onResult])
 
+  const handleGenerateDeck = useCallback(() => {
+    setDeckProgress(null)
+    setStatus('planning')
+    closeSocketRef.current?.()
+
+    const onMessage = (message: DeckWsProgressMessage) => {
+      if (message.stage === 'planning') {
+        setStatus('planning')
+      } else if (message.stage === 'plan_ready') {
+        setStatus('generating')
+        setDeckProgress({ completed: 0, total: message.plan.slides.length })
+      } else if (message.stage === 'generating') {
+        setStatus('generating')
+        setDeckProgress({ completed: message.completed, total: message.total })
+      } else if (message.stage === 'done') {
+        setStatus('done')
+        onDeckResult(message.result)
+      } else if (message.stage === 'error') {
+        setStatus('error')
+        setErrorMessage(message.message)
+      }
+    }
+
+    const onError = () => {
+      setStatus('error')
+      setErrorMessage('Connection to backend failed. Is the API running?')
+    }
+
+    closeSocketRef.current = openDeckGenerateSocket(material, prompt, onMessage, onError)
+  }, [material, prompt, onDeckResult])
+
+  const handleGenerate = useCallback(() => {
+    if (!material.trim() || !prompt.trim()) {
+      setErrorMessage('Add source material and a prompt before generating.')
+      return
+    }
+    setErrorMessage(null)
+    if (mode === 'deck') {
+      handleGenerateDeck()
+    } else {
+      handleGenerateSingle()
+    }
+  }, [mode, material, prompt, handleGenerateSingle, handleGenerateDeck])
+
   const isGenerating =
-    status === 'classifying' || status === 'calling_llm' || status === 'validating'
+    status === 'classifying' ||
+    status === 'calling_llm' ||
+    status === 'validating' ||
+    status === 'planning' ||
+    status === 'generating'
+
+  const statusText =
+    status === 'generating' && deckProgress
+      ? `Generating slide ${deckProgress.completed} of ${deckProgress.total}…`
+      : STATUS_LABEL[status]
 
   return (
     <aside className="flex h-full w-[360px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-neutral-200 bg-white p-4">
@@ -134,7 +203,7 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
         <textarea
           value={material}
           onChange={(event) => setMaterial(event.target.value)}
-          placeholder="Paste source material (a plan, strategy doc, roadmap, etc.)"
+          placeholder="Paste source material (a plan, strategy doc, roadmap, PRD, etc.)"
           className="mt-3 h-40 w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-primary"
         />
       </div>
@@ -151,18 +220,49 @@ export function InfographicSidebar({ onResult, issues }: InfographicSidebarProps
         />
       </div>
 
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+          Output
+        </h2>
+        <div className="mt-2 flex gap-1 rounded-lg bg-neutral-100 p-1 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => onModeChange('single')}
+            className={`flex-1 rounded-md py-1.5 transition-colors ${
+              mode === 'single' ? 'bg-white text-primary shadow-sm' : 'text-neutral-600'
+            }`}
+          >
+            Single slide
+          </button>
+          <button
+            type="button"
+            onClick={() => onModeChange('deck')}
+            className={`flex-1 rounded-md py-1.5 transition-colors ${
+              mode === 'deck' ? 'bg-white text-primary shadow-sm' : 'text-neutral-600'
+            }`}
+          >
+            Full deck (PRD)
+          </button>
+        </div>
+        {mode === 'deck' ? (
+          <p className="mt-1.5 text-[11px] text-neutral-500">
+            Plans a 4-10 slide deck from a longer document, picking the best template per slide.
+          </p>
+        ) : null}
+      </div>
+
       <button
         type="button"
         onClick={handleGenerate}
         disabled={isGenerating}
         className="rounded-md bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isGenerating ? 'Generating…' : 'Generate infographic'}
+        {isGenerating ? 'Generating…' : mode === 'deck' ? 'Build deck' : 'Generate infographic'}
       </button>
 
       {status !== 'idle' ? (
         <p className={`text-xs ${status === 'error' ? 'text-red-600' : 'text-neutral-600'}`}>
-          {STATUS_LABEL[status]}
+          {statusText}
         </p>
       ) : null}
       {errorMessage ? <p className="text-xs text-red-600">{errorMessage}</p> : null}

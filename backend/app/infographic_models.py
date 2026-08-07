@@ -14,6 +14,10 @@ PYRAMID_MIN_PILLARS = 3
 PYRAMID_MAX_PILLARS = 4
 TIMELINE_MIN_MILESTONES = 4
 TIMELINE_MAX_MILESTONES = 6
+BULLET_MIN_COUNT = 3
+BULLET_MAX_COUNT = 6
+DECK_MIN_SLIDES = 4
+DECK_MAX_SLIDES = 10
 
 InfographicTemplateId = Literal[
     "radial_wheel",
@@ -21,6 +25,7 @@ InfographicTemplateId = Literal[
     "now_next_later",
     "vision_pyramid",
     "quarterly_timeline",
+    "bullet_summary",
 ]
 
 
@@ -86,6 +91,15 @@ class InfographicTimeline(BaseModel):
     milestones: list[TimelineMilestone] = Field(default_factory=list)
 
 
+class BulletSummarySlide(BaseModel):
+    """The fallback shape for content that doesn't fit any of the other
+    fixed-layout templates: a plain title + bullet list."""
+
+    template: Literal["bullet_summary"] = "bullet_summary"
+    title: str
+    bullets: list[str] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -94,11 +108,28 @@ InfographicDiagram = Annotated[
     | InfographicComparison
     | InfographicRoadmap
     | InfographicPyramid
-    | InfographicTimeline,
+    | InfographicTimeline
+    | BulletSummarySlide,
     Field(discriminator="template"),
 ]
 
 
 class GenerateInfographicResponse(BaseModel):
     diagram: InfographicDiagram
+    issues: list[ValidationIssue] = Field(default_factory=list)
+
+
+class DeckSlidePlan(BaseModel):
+    template: InfographicTemplateId
+    topic: str
+
+
+class DeckPlan(BaseModel):
+    deck_title: str
+    slides: list[DeckSlidePlan] = Field(default_factory=list)
+
+
+class GenerateDeckResponse(BaseModel):
+    title: str
+    slides: list[InfographicDiagram] = Field(default_factory=list)
     issues: list[ValidationIssue] = Field(default_factory=list)
