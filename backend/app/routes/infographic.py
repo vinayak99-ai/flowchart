@@ -18,6 +18,9 @@ from app.infographic_models import (
     PYRAMID_MIN_PILLARS,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
+    TITLE_HIGHLIGHT_MAX,
+    TITLE_HIGHLIGHT_MIN,
+    AgendaSlide,
     BulletSummarySlide,
     GenerateDeckResponse,
     GenerateInfographicResponse,
@@ -29,9 +32,11 @@ from app.infographic_models import (
     InfographicRoadmap,
     InfographicTimeline,
     InfographicWheel,
+    TitleSlide,
     WHEEL_ITEM_COUNT,
 )
 from app.infographic_template import (
+    build_agenda_pptx,
     build_bullets_pptx,
     build_comparison_pptx,
     build_deck_pptx,
@@ -41,6 +46,7 @@ from app.infographic_template import (
     build_roadmap_pptx,
     build_story_pptx,
     build_timeline_pptx,
+    build_title_pptx,
     build_wheel_pptx,
 )
 from app.models import GenerateRequest, ValidationIssue, ValidationSeverity
@@ -57,6 +63,8 @@ _EXPORT_BUILDERS = {
     "matrix_2x2": (build_matrix_pptx, "infographic-matrix.pptx"),
     "feature_story": (build_story_pptx, "infographic-feature-story.pptx"),
     "hub_spoke": (build_hub_spoke_pptx, "infographic-hub-spoke.pptx"),
+    "title_intro": (build_title_pptx, "infographic-title.pptx"),
+    "agenda": (build_agenda_pptx, "infographic-agenda.pptx"),
 }
 
 
@@ -145,6 +153,28 @@ def _validate_infographic(data: InfographicDiagram) -> list[ValidationIssue]:
                     severity=ValidationSeverity.warning,
                     code="wrong_item_count",
                     message=f"Hub & spoke has {len(data.items)} items; the template has exactly {HUB_SPOKE_ITEM_COUNT} slots.",
+                )
+            ]
+        return []
+
+    if isinstance(data, TitleSlide):
+        if not (TITLE_HIGHLIGHT_MIN <= len(data.highlights) <= TITLE_HIGHLIGHT_MAX):
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_highlight_count",
+                    message=f"Title slide has {len(data.highlights)} highlights; the template supports {TITLE_HIGHLIGHT_MIN}-{TITLE_HIGHLIGHT_MAX}.",
+                )
+            ]
+        return []
+
+    if isinstance(data, AgendaSlide):
+        if not data.items:
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="empty_agenda",
+                    message="Agenda has no items.",
                 )
             ]
         return []

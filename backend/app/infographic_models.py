@@ -19,6 +19,8 @@ BULLET_MAX_COUNT = 6
 MATRIX_QUADRANT_COUNT = 4
 MATRIX_ITEM_COUNT = 4
 HUB_SPOKE_ITEM_COUNT = 6
+TITLE_HIGHLIGHT_MIN = 3
+TITLE_HIGHLIGHT_MAX = 5
 DECK_MIN_SLIDES = 4
 DECK_MAX_SLIDES = 10
 
@@ -32,6 +34,8 @@ InfographicTemplateId = Literal[
     "matrix_2x2",
     "feature_story",
     "hub_spoke",
+    "title_intro",
+    "agenda",
 ]
 
 
@@ -160,6 +164,36 @@ class InfographicHubSpoke(BaseModel):
     items: list[HubSpokeItem] = Field(default_factory=list)
 
 
+class TitleSlide(BaseModel):
+    """The deck's opening cover slide: a headline naming what the product
+    or initiative actually is, a one-line elaboration, and a handful of
+    short capability/pillar tags -- an introduction to everything that
+    follows, not a content section itself."""
+
+    template: Literal["title_intro"] = "title_intro"
+    title: str
+    subtitle: str
+    highlights: list[str] = Field(default_factory=list)
+
+
+class AgendaItem(BaseModel):
+    label: str
+    page: int
+
+
+class AgendaSlide(BaseModel):
+    """A table-of-contents slide listing every other slide in the deck with
+    its page number. In full-deck generation this is always built directly
+    from the deck plan (never an LLM call), so the page numbers are
+    guaranteed correct; the standalone per-template generator exists for
+    manual/single-slide use, where the page numbers are only a starting
+    point the PM adjusts once they see the real deck."""
+
+    template: Literal["agenda"] = "agenda"
+    title: str = "Agenda"
+    items: list[AgendaItem] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -172,7 +206,9 @@ InfographicDiagram = Annotated[
     | BulletSummarySlide
     | InfographicMatrix
     | FeatureStory
-    | InfographicHubSpoke,
+    | InfographicHubSpoke
+    | TitleSlide
+    | AgendaSlide,
     Field(discriminator="template"),
 ]
 
@@ -185,6 +221,10 @@ class GenerateInfographicResponse(BaseModel):
 class DeckSlidePlan(BaseModel):
     template: InfographicTemplateId
     topic: str
+    # A short 2-5 word line for this slide's row on the deck's agenda slide
+    # (e.g. "Q1-Q3 Rollout Plan") -- kept separate from `topic`, which is a
+    # longer, more specific brief for content generation.
+    agenda_label: str
 
 
 class DeckPlan(BaseModel):

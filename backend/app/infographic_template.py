@@ -21,6 +21,8 @@ from app.infographic_models import (
     ROADMAP_COLUMN_COUNT,
     ROADMAP_ITEM_COUNT,
     TIMELINE_MAX_MILESTONES,
+    TITLE_HIGHLIGHT_MAX,
+    AgendaSlide,
     BulletSummarySlide,
     FeatureStory,
     HubSpokeItem,
@@ -35,6 +37,7 @@ from app.infographic_models import (
     MatrixQuadrant,
     PyramidPillar,
     RoadmapColumn,
+    TitleSlide,
     WheelItem,
 )
 
@@ -144,6 +147,27 @@ HUB_SPOKE_CAP_W_IN = 1.1
 # reused one color across 2 of its 6 segments, which we deliberately fixed
 # here, now drawn from the validated brand palette (see BRAND_COLORS above).
 HUB_SPOKE_COLORS = BRAND_COLORS
+
+TITLE_TOP_BAR_H_IN = 0.14
+TITLE_HEADLINE_Y_IN = 3.0
+TITLE_HEADLINE_H_IN = 1.1
+TITLE_RULE_Y_IN = 3.82
+TITLE_RULE_W_IN = 2.2
+TITLE_RULE_H_IN = 0.035
+TITLE_SUBTITLE_Y_IN = 4.35
+TITLE_SUBTITLE_W_IN = 9.5
+TITLE_SUBTITLE_H_IN = 1.0
+TITLE_CHIP_Y_IN = 6.15
+TITLE_CHIP_W_IN = 2.05
+TITLE_CHIP_H_IN = 0.5
+TITLE_CHIP_GAP_IN = 0.22
+
+AGENDA_TITLE_Y_IN = 0.6
+AGENDA_LIST_TOP_IN = 1.7
+AGENDA_LIST_LEFT_IN = 1.5
+AGENDA_LIST_WIDTH_IN = 10.3
+AGENDA_ROW_H_IN = 0.66
+AGENDA_CHIP_SIZE_IN = 0.5
 
 
 def _new_presentation() -> Presentation:
@@ -1167,6 +1191,136 @@ def build_hub_spoke_pptx(data: InfographicHubSpoke) -> bytes:
     return _save_bytes(prs)
 
 
+def add_title_slide(prs: Presentation, data: TitleSlide) -> None:
+    """The deck's cover slide: a thin brand-green top bar to mark it as the
+    opener (content slides carry no such bar), a centered headline + gold
+    rule + subtitle, and a row of highlight chips -- distinct from
+    bullet_summary's left-aligned title-and-list shape on purpose, since
+    this isn't a content section.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    top_bar = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, Inches(TITLE_TOP_BAR_H_IN)
+    )
+    _set_fill(top_bar, BRAND_COLORS[0])
+    top_bar.shadow.inherit = False
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, TITLE_HEADLINE_Y_IN, SLIDE_W_IN - 2.0, data.title,
+        size=40, bold=True, color="1F2622", h_in=TITLE_HEADLINE_H_IN,
+    )
+
+    rule = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(SLIDE_W_IN / 2 - TITLE_RULE_W_IN / 2), Inches(TITLE_RULE_Y_IN),
+        Inches(TITLE_RULE_W_IN), Inches(TITLE_RULE_H_IN),
+    )
+    _set_fill(rule, BRAND_COLORS[1])
+    rule.shadow.inherit = False
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, TITLE_SUBTITLE_Y_IN, TITLE_SUBTITLE_W_IN, data.subtitle,
+        size=18, bold=False, color="5B5A52", h_in=TITLE_SUBTITLE_H_IN,
+    )
+
+    highlights = data.highlights[:TITLE_HIGHLIGHT_MAX]
+    count = len(highlights)
+    if count:
+        total_w = count * TITLE_CHIP_W_IN + (count - 1) * TITLE_CHIP_GAP_IN
+        start_x = SLIDE_W_IN / 2 - total_w / 2
+        for i, highlight in enumerate(highlights):
+            chip_x = start_x + i * (TITLE_CHIP_W_IN + TITLE_CHIP_GAP_IN)
+            color = BRAND_COLORS[i % len(BRAND_COLORS)]
+            chip = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                Inches(chip_x), Inches(TITLE_CHIP_Y_IN), Inches(TITLE_CHIP_W_IN), Inches(TITLE_CHIP_H_IN),
+            )
+            chip.adjustments[0] = 0.5
+            _set_fill(chip, color)
+            chip.shadow.inherit = False
+            _add_label(
+                slide, chip_x + TITLE_CHIP_W_IN / 2, TITLE_CHIP_Y_IN + TITLE_CHIP_H_IN / 2,
+                TITLE_CHIP_W_IN - 0.2, highlight.upper(),
+                size=12, bold=True, color="FFFFFF", h_in=TITLE_CHIP_H_IN - 0.1,
+            )
+
+
+def build_title_pptx(data: TitleSlide) -> bytes:
+    prs = _new_presentation()
+    add_title_slide(prs, data)
+    return _save_bytes(prs)
+
+
+def add_agenda_slide(prs: Presentation, data: AgendaSlide) -> None:
+    """A table-of-contents slide: one row per other slide in the deck, each
+    with a colored page-number chip (the literal page it lands on, not just
+    a running count) and a divider hairline -- deliberately close to
+    bullet_summary's dot-and-text row, but the page number is real
+    information here, so it replaces the plain dot.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, AGENDA_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
+        size=26, bold=True, color="1B1F1C", h_in=0.7,
+    )
+
+    for i, item in enumerate(data.items):
+        row_y = AGENDA_LIST_TOP_IN + i * AGENDA_ROW_H_IN
+        color = BRAND_COLORS[i % len(BRAND_COLORS)]
+
+        chip = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(AGENDA_LIST_LEFT_IN), Inches(row_y + (AGENDA_ROW_H_IN - AGENDA_CHIP_SIZE_IN) / 2),
+            Inches(AGENDA_CHIP_SIZE_IN), Inches(AGENDA_CHIP_SIZE_IN),
+        )
+        chip.adjustments[0] = 0.2
+        _set_fill(chip, color)
+        chip.shadow.inherit = False
+        _add_label(
+            slide, AGENDA_LIST_LEFT_IN + AGENDA_CHIP_SIZE_IN / 2, row_y + AGENDA_ROW_H_IN / 2,
+            AGENDA_CHIP_SIZE_IN - 0.05, f"{item.page:02d}",
+            size=14, bold=True, color="FFFFFF", h_in=AGENDA_CHIP_SIZE_IN - 0.05,
+        )
+
+        label_x = AGENDA_LIST_LEFT_IN + AGENDA_CHIP_SIZE_IN + 0.35
+        text_box = slide.shapes.add_textbox(
+            Inches(label_x), Inches(row_y),
+            Inches(AGENDA_LIST_WIDTH_IN - AGENDA_CHIP_SIZE_IN - 0.35), Inches(AGENDA_ROW_H_IN),
+        )
+        tf = text_box.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = item.label
+        run.font.size = Pt(16)
+        run.font.bold = True
+        run.font.color.rgb = RGBColor.from_string("2A2E29")
+        run.font.name = "Arial"
+
+        divider = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(AGENDA_LIST_LEFT_IN), Inches(row_y + AGENDA_ROW_H_IN - 0.01),
+            Inches(AGENDA_LIST_WIDTH_IN), Pt(1),
+        )
+        _set_fill(divider, "E4E1D8")
+        divider.shadow.inherit = False
+
+
+def build_agenda_pptx(data: AgendaSlide) -> bytes:
+    prs = _new_presentation()
+    add_agenda_slide(prs, data)
+    return _save_bytes(prs)
+
+
 _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
     "radial_wheel": add_wheel_slide,
     "comparison_columns": add_comparison_slide,
@@ -1177,6 +1331,8 @@ _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], Non
     "matrix_2x2": add_matrix_slide,
     "feature_story": add_story_slide,
     "hub_spoke": add_hub_spoke_slide,
+    "title_intro": add_title_slide,
+    "agenda": add_agenda_slide,
 }
 
 

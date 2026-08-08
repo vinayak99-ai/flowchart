@@ -101,6 +101,24 @@ export interface InfographicHubSpoke {
   items: HubSpokeItem[]
 }
 
+export interface TitleSlide {
+  template: 'title_intro'
+  title: string
+  subtitle: string
+  highlights: string[]
+}
+
+export interface AgendaItem {
+  label: string
+  page: number
+}
+
+export interface AgendaSlide {
+  template: 'agenda'
+  title: string
+  items: AgendaItem[]
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
@@ -111,6 +129,8 @@ export type InfographicDiagram =
   | InfographicMatrix
   | FeatureStory
   | InfographicHubSpoke
+  | TitleSlide
+  | AgendaSlide
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram
@@ -127,6 +147,7 @@ export type InfographicWsProgressMessage =
 export interface DeckSlidePlan {
   template: InfographicDiagram['template']
   topic: string
+  agenda_label: string
 }
 
 export interface DeckPlan {

@@ -21,8 +21,13 @@ from app.infographic_models import (
     ROADMAP_ITEM_COUNT,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
+    TITLE_HIGHLIGHT_MAX,
+    TITLE_HIGHLIGHT_MIN,
+    AgendaItem,
+    AgendaSlide,
     BulletSummarySlide,
     DeckPlan,
+    DeckSlidePlan,
     FeatureStory,
     HUB_SPOKE_ITEM_COUNT,
     InfographicComparison,
@@ -34,6 +39,7 @@ from app.infographic_models import (
     InfographicTemplateId,
     InfographicTimeline,
     InfographicWheel,
+    TitleSlide,
     WHEEL_ITEM_COUNT,
 )
 
@@ -72,9 +78,15 @@ fits the content, before anything is generated.
 
 Templates:
 {TEMPLATE_CATALOG}
+- title_intro: a cover/title slide introducing the product or initiative itself -- a headline \
+name, a one-line description of what it is, and a few short capability/pillar tags. Use this \
+only when the user is explicitly asking for an intro/cover/title slide, not for summarizing one \
+section of content.
 
 Pick the single best-fitting template. If the material doesn't clearly fit one of the shaped \
-templates, use bullet_summary rather than forcing a poor fit.
+templates, use bullet_summary rather than forcing a poor fit. Never pick agenda here -- it only \
+makes sense once the rest of a deck's slides (and their page numbers) already exist, which this \
+single-slide path doesn't have.
 """
 
 
@@ -447,6 +459,81 @@ async def generate_infographic_hub_spoke(material: str, prompt: str) -> Infograp
     return parsed
 
 
+TITLE_SYSTEM_PROMPT = f"""You are an infographic designer building the opening cover slide for a \
+deck generated from a product document. Given source material and a user prompt, derive a title/ \
+intro slide as JSON matching the provided schema.
+
+Rules:
+- `title` is the name of the product, initiative, or document itself (e.g. "Product Studio \
+Platform Expansion"), not a generic label like "Introduction" or "Overview".
+- `subtitle` is one sentence (under 25 words) stating what it is and why it matters -- the line \
+someone reads if they read nothing else on this slide.
+- `highlights` must contain between {TITLE_HIGHLIGHT_MIN} and {TITLE_HIGHLIGHT_MAX} short 1-3 \
+word tags naming the core pillars, capabilities, or themes the rest of the material covers (e.g. \
+"Speed", "Trust", "Breadth").
+- Base everything on what the source material actually describes. Do not invent a name, claim, \
+or pillar that isn't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_title(material: str, prompt: str) -> TitleSlide:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": TITLE_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=TitleSlide,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed title slide.")
+    return parsed
+
+
+AGENDA_SYSTEM_PROMPT = """You are an infographic designer building a standalone table-of-contents \
+slide (used outside full-deck generation, where page numbers are instead computed exactly from \
+the real deck). Given source material and a user prompt, derive an agenda as JSON matching the \
+provided schema.
+
+Rules:
+- `title` is "Agenda" unless the prompt asks for something else (e.g. "Table of Contents").
+- `items` is an ordered list of the material's main sections, each a short 2-5 word label.
+- Assign each item's `page` sequentially starting at 3 (page 1 is a title slide, page 2 is this \
+agenda, by convention) -- this is a best-effort placeholder the PM can correct once the real \
+deck exists, not a guarantee.
+- Base everything on what the source material actually describes. Do not invent sections that \
+aren't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_agenda(material: str, prompt: str) -> AgendaSlide:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": AGENDA_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=AgendaSlide,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed agenda.")
+    return parsed
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
 ) -> InfographicDiagram:
@@ -466,6 +553,10 @@ async def generate_infographic(
         return await generate_infographic_story(material, prompt)
     if template == "hub_spoke":
         return await generate_infographic_hub_spoke(material, prompt)
+    if template == "title_intro":
+        return await generate_infographic_title(material, prompt)
+    if template == "agenda":
+        return await generate_infographic_agenda(material, prompt)
     return await generate_infographic_wheel(material, prompt)
 
 
@@ -487,14 +578,21 @@ feels tidy.
 roadmap, comparisons/options, key milestones, prioritized initiatives -- rather than mechanically \
 producing one slide per heading. Skip filler content (revision history, boilerplate).
 - `deck_title` is a short 2-6 word name for the whole deck.
-- Each slide needs a `template` (one of the ids above) and a `topic`: a short, specific \
-description of what that slide should cover (e.g. "Q1-Q3 rollout phases with dates"), detailed \
-enough that a separate step can generate that slide's content from just this topic plus the \
-full document.
+- Plan CONTENT slides only. A title/cover slide and an agenda/table-of-contents slide are always \
+added automatically before your first planned slide -- do not plan either of those yourself, and \
+do not plan a redundant "Introduction" or "Overview" slide either, since the cover slide already \
+covers that.
+- Each slide needs a `template` (one of the ids above), a `topic` (a short, specific description \
+of what that slide should cover, e.g. "Q1-Q3 rollout phases with dates", detailed enough that a \
+separate step can generate that slide's content from just this topic plus the full document), \
+and an `agenda_label` (a short 2-5 word line for this slide's row on the deck's agenda, e.g. \
+"Q1-Q3 Rollout Plan" -- punchier and shorter than `topic`, written for a reader scanning a \
+table of contents, not for the generation step).
 - Use bullet_summary for any section worth a slide that doesn't cleanly fit a shaped template. \
 Don't force content into the wrong shape.
 - Hard floor and ceiling, regardless of the above: never fewer than {DECK_MIN_SLIDES} slides or \
-more than {DECK_MAX_SLIDES}.
+more than {DECK_MAX_SLIDES} CONTENT slides (the automatic title and agenda slides are on top of \
+this range, not counted within it).
 """
 
 
@@ -516,7 +614,23 @@ async def plan_deck(material: str, prompt: str) -> DeckPlan:
     parsed = completion.choices[0].message.parsed
     if parsed is None:
         raise ValueError("OpenAI response did not include a parsed deck plan.")
-    return parsed
+
+    # Every generated deck opens with a cover slide and an agenda, added
+    # here in code rather than left to the planner LLM -- guarantees they're
+    # always present, always first, and always in this order, which the
+    # agenda's page numbers depend on (see generate_deck's agenda handling).
+    opener = [
+        DeckSlidePlan(
+            template="title_intro",
+            topic=(
+                f"An introduction to '{parsed.deck_title}': what it is, who it's for, and its "
+                "core value -- drawn from the document as a whole, not one section of it."
+            ),
+            agenda_label="Introduction",
+        ),
+        DeckSlidePlan(template="agenda", topic="Agenda", agenda_label="Agenda"),
+    ]
+    return DeckPlan(deck_title=parsed.deck_title, slides=opener + parsed.slides)
 
 
 async def generate_deck_slide(material: str, prompt: str, template: InfographicTemplateId, topic: str) -> InfographicDiagram:
@@ -534,6 +648,25 @@ async def _generate_indexed_slide(
     return i, diagram
 
 
+def _build_agenda(plan: DeckPlan) -> AgendaSlide:
+    """Builds the agenda directly from the plan instead of an LLM call --
+    page numbers are just each OTHER slide's 1-based position in the final
+    deck (title_intro/agenda excluded from their own listing), so this is
+    exact by construction rather than a guess a model could get wrong."""
+    items = [
+        AgendaItem(label=slide_plan.agenda_label, page=i + 1)
+        for i, slide_plan in enumerate(plan.slides)
+        if slide_plan.template not in ("title_intro", "agenda")
+    ]
+    return AgendaSlide(title="Agenda", items=items)
+
+
+async def _indexed_agenda(i: int, plan: DeckPlan) -> tuple[int, InfographicDiagram]:
+    # No I/O -- wrapped as a coroutine purely so it can sit in the same
+    # asyncio.as_completed pool as the real per-slide LLM calls below.
+    return i, _build_agenda(plan)
+
+
 async def generate_deck(
     material: str,
     prompt: str,
@@ -548,9 +681,16 @@ async def generate_deck(
     # not the original task objects. Results are assembled back into the
     # original plan order -- slide order in the deck must match the plan,
     # not completion order.
+    #
+    # The agenda slide is the one exception: it's never an LLM call (see
+    # _build_agenda) since its whole point -- correct page numbers -- comes
+    # from the plan itself, not from asking a model to count slides it
+    # can't see the final order of.
     total = len(plan.slides)
     tasks = [
-        asyncio.ensure_future(
+        asyncio.ensure_future(_indexed_agenda(i, plan))
+        if slide_plan.template == "agenda"
+        else asyncio.ensure_future(
             _generate_indexed_slide(i, material, prompt, slide_plan.template, slide_plan.topic)
         )
         for i, slide_plan in enumerate(plan.slides)
