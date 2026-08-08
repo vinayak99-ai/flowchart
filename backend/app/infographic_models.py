@@ -24,6 +24,8 @@ TITLE_HIGHLIGHT_MAX = 5
 VALUE_PROP_MAX_ITEMS = 3
 RACI_MIN_ROWS = 3
 RACI_MAX_ROWS = 6
+NORTH_STAR_MIN_DRIVERS = 3
+NORTH_STAR_MAX_DRIVERS = 5
 DECK_MIN_SLIDES = 4
 DECK_MAX_SLIDES = 10
 
@@ -42,6 +44,7 @@ InfographicTemplateId = Literal[
     "value_proposition",
     "positioning_statement",
     "raci_chart",
+    "north_star_metric",
 ]
 
 
@@ -254,6 +257,24 @@ class RaciChartSlide(BaseModel):
     rows: list[RaciRow] = Field(default_factory=list)
 
 
+class MetricDriver(BaseModel):
+    label: str
+    metric: str
+    description: str
+
+
+class NorthStarMetricSlide(BaseModel):
+    """The North Star Metric framework: one metric that best captures the
+    product's core value delivered to customers, plus the 3-5 input/driver
+    metrics a team actually pulls to move it -- makes "how we measure
+    success" concrete rather than asserting the product is valuable."""
+
+    template: Literal["north_star_metric"] = "north_star_metric"
+    north_star: str
+    definition: str
+    drivers: list[MetricDriver] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -273,6 +294,7 @@ InfographicDiagram = Annotated[
         ValuePropositionSlide,
         PositioningStatementSlide,
         RaciChartSlide,
+        NorthStarMetricSlide,
     ],
     Field(discriminator="template"),
 ]

@@ -14,6 +14,8 @@ from app.infographic_models import (
     COMPARISON_MAX_COLUMNS,
     HUB_SPOKE_ITEM_COUNT,
     MATRIX_QUADRANT_COUNT,
+    NORTH_STAR_MAX_DRIVERS,
+    NORTH_STAR_MIN_DRIVERS,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     RACI_MAX_ROWS,
@@ -34,6 +36,7 @@ from app.infographic_models import (
     InfographicRoadmap,
     InfographicTimeline,
     InfographicWheel,
+    NorthStarMetricSlide,
     RaciChartSlide,
     TitleSlide,
     WHEEL_ITEM_COUNT,
@@ -45,6 +48,7 @@ from app.infographic_template import (
     build_deck_pptx,
     build_hub_spoke_pptx,
     build_matrix_pptx,
+    build_north_star_metric_pptx,
     build_positioning_statement_pptx,
     build_pyramid_pptx,
     build_raci_chart_pptx,
@@ -74,6 +78,7 @@ _EXPORT_BUILDERS = {
     "value_proposition": (build_value_proposition_pptx, "infographic-value-proposition.pptx"),
     "positioning_statement": (build_positioning_statement_pptx, "infographic-positioning.pptx"),
     "raci_chart": (build_raci_chart_pptx, "infographic-raci.pptx"),
+    "north_star_metric": (build_north_star_metric_pptx, "infographic-north-star-metric.pptx"),
 }
 
 
@@ -195,6 +200,17 @@ def _validate_infographic(data: InfographicDiagram) -> list[ValidationIssue]:
                     severity=ValidationSeverity.warning,
                     code="wrong_row_count",
                     message=f"RACI chart has {len(data.rows)} rows; the template supports {RACI_MIN_ROWS}-{RACI_MAX_ROWS}.",
+                )
+            ]
+        return []
+
+    if isinstance(data, NorthStarMetricSlide):
+        if not (NORTH_STAR_MIN_DRIVERS <= len(data.drivers) <= NORTH_STAR_MAX_DRIVERS):
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_driver_count",
+                    message=f"North Star Metric has {len(data.drivers)} drivers; the template supports {NORTH_STAR_MIN_DRIVERS}-{NORTH_STAR_MAX_DRIVERS}.",
                 )
             ]
         return []

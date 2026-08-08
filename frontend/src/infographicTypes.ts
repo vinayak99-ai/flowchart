@@ -155,6 +155,19 @@ export interface RaciChartSlide {
   rows: RaciRow[]
 }
 
+export interface MetricDriver {
+  label: string
+  metric: string
+  description: string
+}
+
+export interface NorthStarMetricSlide {
+  template: 'north_star_metric'
+  north_star: string
+  definition: string
+  drivers: MetricDriver[]
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
@@ -170,6 +183,7 @@ export type InfographicDiagram =
   | ValuePropositionSlide
   | PositioningStatementSlide
   | RaciChartSlide
+  | NorthStarMetricSlide
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram

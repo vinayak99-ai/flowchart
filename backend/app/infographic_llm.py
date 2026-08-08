@@ -22,6 +22,8 @@ from app.infographic_models import (
     ROADMAP_ITEM_COUNT,
     RACI_MAX_ROWS,
     RACI_MIN_ROWS,
+    NORTH_STAR_MAX_DRIVERS,
+    NORTH_STAR_MIN_DRIVERS,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
     TITLE_HIGHLIGHT_MAX,
@@ -43,6 +45,7 @@ from app.infographic_models import (
     InfographicTemplateId,
     InfographicTimeline,
     InfographicWheel,
+    NorthStarMetricSlide,
     PositioningStatementSlide,
     RaciChartSlide,
     TitleSlide,
@@ -86,6 +89,11 @@ customer, or a competitive differentiator for the product as a whole.
 - raci_chart: who owns what for an initiative -- one row per task with a Responsible/ \
 Accountable/Consulted/Informed name in each column. Best when the material assigns ownership or \
 decision rights, not when it's just describing what will be built.
+- north_star_metric: the North Star Metric framework -- one metric that best captures the core \
+value the product delivers to customers, plus the 3-5 input/driver metrics a team actually tracks \
+to move it. Best when the material discusses success metrics, KPIs, or how a product/feature's \
+impact is measured, not when it's describing what will be built or a general business outcome \
+with no named metric.
 - bullet_summary: a plain title + a short bullet list. Use this whenever content doesn't \
 cleanly fit any of the shaped templates above -- it's the flexible fallback, not a last resort \
 to avoid; forcing a poor fit into a shaped template is worse than a clean bullet list."""
@@ -444,6 +452,35 @@ async def generate_infographic_raci(material: str, prompt: str) -> RaciChartSlid
     return await generate_structured(RACI_SYSTEM_PROMPT, user_message, RaciChartSlide)
 
 
+NORTH_STAR_SYSTEM_PROMPT = f"""You are a product manager defining how success is measured, using \
+the North Star Metric framework. Given source material and a user prompt, derive the metric tree \
+as JSON matching the provided schema.
+
+Rules:
+- `north_star` is the single metric that best captures the core value the product delivers to \
+customers -- not a vanity metric (e.g. total signups) or a pure revenue number, but something \
+that moves only when customers are genuinely getting value (e.g. "Weekly Active Orders per \
+User", not "Total Downloads"). Keep it short, 2-6 words.
+- `definition` is one sentence explaining why this metric captures real customer value and how \
+it's measured.
+- `drivers` must contain between {NORTH_STAR_MIN_DRIVERS} and {NORTH_STAR_MAX_DRIVERS} entries -- \
+the concrete input metrics a team actually pulls to move the north star. Use exactly as many as \
+the material clearly supports -- never pad with an invented driver.
+- Each driver's `label` is a short 2-4 word name for that input (e.g. "Order Frequency", \
+"Activation Rate").
+- Each driver's `metric` is the specific, measurable proxy for it (e.g. "Orders per active user \
+per week"), under 8 words -- concrete enough that someone could actually instrument and track it.
+- Each driver's `description` is one short sentence on how moving this metric moves the north star.
+- Base everything on what the source material actually describes. Do not invent a metric or \
+driver that isn't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_north_star(material: str, prompt: str) -> NorthStarMetricSlide:
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+    return await generate_structured(NORTH_STAR_SYSTEM_PROMPT, user_message, NorthStarMetricSlide)
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
 ) -> InfographicDiagram:
@@ -473,6 +510,8 @@ async def generate_infographic(
         return await generate_infographic_positioning(material, prompt)
     if template == "raci_chart":
         return await generate_infographic_raci(material, prompt)
+    if template == "north_star_metric":
+        return await generate_infographic_north_star(material, prompt)
     return await generate_infographic_wheel(material, prompt)
 
 

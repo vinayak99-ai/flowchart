@@ -16,6 +16,7 @@ from app.infographic_models import (
     HUB_SPOKE_ITEM_COUNT,
     MATRIX_ITEM_COUNT,
     MATRIX_QUADRANT_COUNT,
+    NORTH_STAR_MAX_DRIVERS,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
     ROADMAP_COLUMN_COUNT,
@@ -37,6 +38,7 @@ from app.infographic_models import (
     InfographicTimeline,
     InfographicWheel,
     MatrixQuadrant,
+    NorthStarMetricSlide,
     PositioningStatementSlide,
     PyramidPillar,
     RaciChartSlide,
@@ -208,6 +210,14 @@ RACI_HEADER_H_IN = 0.75
 RACI_ROW_H_IN = 0.85
 RACI_ROLE_LABELS = [("R", "Responsible"), ("A", "Accountable"), ("C", "Consulted"), ("I", "Informed")]
 RACI_ROLE_COLORS = ["00754A", "C9A227", "14B0A0", "8A5A0A"]
+
+NORTH_STAR_HERO_TOP_IN = 0.55
+NORTH_STAR_HERO_H_IN = 2.05
+NORTH_STAR_HERO_MARGIN_IN = 0.9
+NORTH_STAR_TRUNK_H_IN = 0.3
+NORTH_STAR_CARD_MARGIN_IN = 0.7
+NORTH_STAR_CARD_GAP_IN = 0.3
+NORTH_STAR_CONNECTOR_COLOR = "C9C4B6"
 
 
 def _new_presentation() -> Presentation:
@@ -1658,6 +1668,110 @@ def build_raci_chart_pptx(data: RaciChartSlide) -> bytes:
     return _save_bytes(prs)
 
 
+def add_north_star_metric_slide(prs: Presentation, data: NorthStarMetricSlide) -> None:
+    """The North Star Metric framework: a hero panel naming the one metric
+    that captures core product value, connector lines fanning out to the
+    3-5 driver metrics a team actually pulls to move it -- makes "how we
+    measure success" a literal tree rather than a bare list.
+    """
+    drivers = data.drivers[:NORTH_STAR_MAX_DRIVERS]
+    n = max(len(drivers), 1)
+
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    hero_w = SLIDE_W_IN - 2 * NORTH_STAR_HERO_MARGIN_IN
+    hero = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(NORTH_STAR_HERO_MARGIN_IN), Inches(NORTH_STAR_HERO_TOP_IN),
+        Inches(hero_w), Inches(NORTH_STAR_HERO_H_IN),
+    )
+    hero.adjustments[0] = 0.06
+    _set_fill(hero, BRAND_COLORS[0])
+    hero.shadow.inherit = False
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, NORTH_STAR_HERO_TOP_IN + 0.32, hero_w - 0.6, "NORTH STAR METRIC",
+        size=13, bold=True, color="C9E8D6", h_in=0.32,
+    )
+    _add_label(
+        slide, SLIDE_W_IN / 2, NORTH_STAR_HERO_TOP_IN + 0.98, hero_w - 0.6, data.north_star,
+        size=30, bold=True, color="FFFFFF", h_in=0.55,
+    )
+    _add_label(
+        slide, SLIDE_W_IN / 2, NORTH_STAR_HERO_TOP_IN + 1.62, hero_w - 1.6, data.definition,
+        size=13, bold=False, color="EAF4EE", h_in=0.5,
+    )
+
+    hero_bottom = NORTH_STAR_HERO_TOP_IN + NORTH_STAR_HERO_H_IN
+    branch_y = hero_bottom + NORTH_STAR_TRUNK_H_IN
+
+    trunk = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(SLIDE_W_IN / 2 - 0.015), Inches(hero_bottom),
+        Inches(0.03), Inches(NORTH_STAR_TRUNK_H_IN),
+    )
+    _set_fill(trunk, NORTH_STAR_CONNECTOR_COLOR)
+    trunk.shadow.inherit = False
+
+    card_top = branch_y + 0.3
+    card_h = SLIDE_H_IN - card_top - 0.5
+    card_w = (SLIDE_W_IN - 2 * NORTH_STAR_CARD_MARGIN_IN - (n - 1) * NORTH_STAR_CARD_GAP_IN) / n
+    xs = [NORTH_STAR_CARD_MARGIN_IN + i * (card_w + NORTH_STAR_CARD_GAP_IN) + card_w / 2 for i in range(n)]
+
+    if n > 1:
+        branch = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(xs[0]), Inches(branch_y - 0.015),
+            Inches(xs[-1] - xs[0]), Inches(0.03),
+        )
+        _set_fill(branch, NORTH_STAR_CONNECTOR_COLOR)
+        branch.shadow.inherit = False
+
+    for i, (driver, cx) in enumerate(zip(drivers, xs)):
+        color = COLUMN_COLORS[i % len(COLUMN_COLORS)]
+
+        drop = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(cx - 0.015), Inches(branch_y), Inches(0.03), Inches(card_top - branch_y),
+        )
+        _set_fill(drop, NORTH_STAR_CONNECTOR_COLOR)
+        drop.shadow.inherit = False
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(cx - card_w / 2), Inches(card_top), Inches(card_w), Inches(card_h),
+        )
+        card.adjustments[0] = 0.06
+        _set_fill(card, "FFFFFF")
+        card.line.color.rgb = RGBColor.from_string("E4E1D8")
+        card.line.width = Pt(1)
+        card.line.fill.solid()
+        card.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+        card.shadow.inherit = False
+
+        accent = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(cx - card_w / 2), Inches(card_top), Inches(card_w), Inches(0.1),
+        )
+        _set_fill(accent, color)
+        accent.shadow.inherit = False
+
+        _add_label(
+            slide, cx, card_top + 0.4, card_w - 0.3, driver.label.upper(),
+            size=12, bold=True, color="1F2622", h_in=0.45,
+        )
+        _add_label(
+            slide, cx, card_top + 0.88, card_w - 0.3, driver.metric,
+            size=13.5, bold=True, color=color, h_in=0.4,
+        )
+        _add_label(
+            slide, cx, card_top + card_h - 0.6, card_w - 0.35, driver.description,
+            size=10, bold=False, color="5B5A52", h_in=card_h - 1.2,
+        )
+
+
+def build_north_star_metric_pptx(data: NorthStarMetricSlide) -> bytes:
+    prs = _new_presentation()
+    add_north_star_metric_slide(prs, data)
+    return _save_bytes(prs)
+
+
 _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
     "radial_wheel": add_wheel_slide,
     "comparison_columns": add_comparison_slide,
@@ -1673,6 +1787,7 @@ _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], Non
     "value_proposition": add_value_proposition_slide,
     "positioning_statement": add_positioning_statement_slide,
     "raci_chart": add_raci_chart_slide,
+    "north_star_metric": add_north_star_metric_slide,
 }
 
 

@@ -126,6 +126,7 @@ const INFOGRAPHIC_FILENAMES: Record<InfographicDiagram['template'], string> = {
   value_proposition: 'infographic-value-proposition.pptx',
   positioning_statement: 'infographic-positioning.pptx',
   raci_chart: 'infographic-raci.pptx',
+  north_star_metric: 'infographic-north-star-metric.pptx',
 }
 
 // The deliverable here is the actual .pptx file (the template, populated

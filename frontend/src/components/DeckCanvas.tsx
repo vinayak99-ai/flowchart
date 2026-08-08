@@ -12,6 +12,7 @@ function slideTitle(diagram: InfographicDiagram): string {
   if (diagram.template === 'vision_pyramid') return diagram.vision || 'Vision'
   if (diagram.template === 'feature_story') return diagram.headline || 'Feature Story'
   if (diagram.template === 'positioning_statement') return diagram.product_name || 'Positioning Statement'
+  if (diagram.template === 'north_star_metric') return diagram.north_star || 'North Star Metric'
   return diagram.title || 'Untitled'
 }
 
