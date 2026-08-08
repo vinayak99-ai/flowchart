@@ -24,3 +24,8 @@ eval_type_backport
 # Its LLM calls go through app/llm_client.py like the rest of the backend,
 # not through this package.
 jira
+# Corporate LLM client (internal package, not on public PyPI) goes here once
+# its name is known -- only needed in environments running LLM_PROVIDER=corporate.
+# See CorporateLLMProvider._call() in app/llm_client.py: the import lives
+# inside that function, not at module top, so this file intentionally has
+# no entry for it yet and OpenAI-only installs (like this one) never need it.

@@ -83,23 +83,31 @@ def _require_parsed(completion, response_model: type[T]) -> T:
 
 
 class CorporateLLMProvider(LLMProvider):
-    """Placeholder for the internal/corporate LLM gateway. Deliberately
-    left unimplemented: its request/response shape and auth scheme are
-    custom (confirmed not OpenAI-compatible) and weren't available when
-    this was written. `_call()` below is the ONLY thing that needs
-    filling in -- both `generate()`/`generate_sync()` and every call site
-    in the app already route through it via `get_llm_provider()`.
+    """Placeholder for the internal/corporate LLM. Deliberately left
+    unimplemented: the client is an internal package installed via `pip
+    install` (not a raw HTTP gateway), and its exact package name and
+    client API weren't available when this was written. `_call()` below
+    is the ONLY thing that needs filling in -- both
+    `generate()`/`generate_sync()` and every call site in the app already
+    route through it via `get_llm_provider()`.
 
-    What `_call()` needs to do, once you have the real API docs:
-      1. Build the request your endpoint expects from (system_prompt,
-         user_message, response_model) -- a JSON body plus whatever auth
-         your org's gateway wants (API key header, bearer token, mTLS...).
-         `self._base_url` / `self._api_key` / `self._model` come straight
-         from CORPORATE_LLM_BASE_URL / CORPORATE_LLM_API_KEY /
-         CORPORATE_LLM_MODEL in backend/.env -- add more settings fields
-         in app/config.py if your auth scheme needs more than a bearer key.
-      2. Send it and get the model's text response back.
-      3. Turn that text into `response_model`. If the endpoint doesn't
+    What `_call()` needs to do, once you have the real package:
+      1. Add the package to requirements.txt (only in environments that
+         actually use `LLM_PROVIDER=corporate` -- see the comment there).
+      2. `import` it INSIDE `_call()`, not at module top. That keeps this
+         module importable -- and every `LLM_PROVIDER=openai` environment
+         (e.g. this sandbox, CI, anyone without access to the internal
+         package index) working -- without the corporate package
+         installed at all.
+      3. Build whatever request/client call the package's API wants from
+         (system_prompt, user_message, response_model). `self._base_url` /
+         `self._api_key` / `self._model` come from CORPORATE_LLM_BASE_URL /
+         CORPORATE_LLM_API_KEY / CORPORATE_LLM_MODEL in backend/.env, if
+         the package's client needs them explicitly -- some internal
+         SDKs instead pick up their own auth/endpoint from env vars or
+         SSO automatically, in which case these three can be ignored (or
+         dropped from Settings once you know which).
+      4. Turn its response into `response_model`. If the package doesn't
          support strict JSON-schema enforcement the way OpenAI's `.parse()`
          does, the safest approach is: instruct the model in the system
          prompt to return ONLY a JSON object matching the schema, then
@@ -116,6 +124,7 @@ class CorporateLLMProvider(LLMProvider):
         self._model = model
 
     def _call(self, *, system_prompt: str, user_message: str, response_model: type[T]) -> T:
+        # from your_internal_package import Client  # import here, not at module top -- see class docstring
         raise NotImplementedError(
             "CorporateLLMProvider isn't wired up yet -- see the class docstring in "
             "app/llm_client.py for exactly what to implement. Set LLM_PROVIDER=openai "
