@@ -77,7 +77,7 @@ export function ProjectList({ onSelectProject, onNewProject }: ProjectListProps)
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-6">
+    <div className="mx-auto max-w-6xl px-6 py-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Projects</h1>
         <Button onClick={onNewProject}>New Project</Button>
@@ -90,7 +90,7 @@ export function ProjectList({ onSelectProject, onNewProject }: ProjectListProps)
         </p>
       )}
       {loading ? (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <Card key={i}>
               <CardHeader>
@@ -101,7 +101,7 @@ export function ProjectList({ onSelectProject, onNewProject }: ProjectListProps)
           ))}
         </div>
       ) : projects.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center">
+        <div className="mx-auto max-w-xl rounded-xl border border-dashed p-8 text-center">
           <p className="text-base font-medium">Paste raw notes, get a full spec.</p>
           <div className="mx-auto mt-4 flex max-w-md flex-col gap-2 text-left text-sm text-muted-foreground">
             <p>
@@ -123,7 +123,7 @@ export function ProjectList({ onSelectProject, onNewProject }: ProjectListProps)
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => {
             const isEditing = editingId === project.id
             return (
@@ -168,7 +168,7 @@ export function ProjectList({ onSelectProject, onNewProject }: ProjectListProps)
                       {project.summary && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           {project.summary.stage === "clarifying" && (
-                            <Badge variant="secondary">
+                            <Badge variant="default">
                               <MessageCircleQuestion className="size-3" />
                               {project.summary.pending_questions} question
                               {project.summary.pending_questions === 1 ? "" : "s"} waiting

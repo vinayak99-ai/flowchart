@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { PipelineProgress } from "@/features/spec-builder/components/PipelineProgress"
+import { StageIntroCard } from "@/components/design-thinking/StageIntroCard"
 
 interface NewProjectProps {
   onGenerated: (projectId: string, artifactId: string, prd: GeneratedPRD) => void
@@ -48,7 +49,7 @@ export function NewProject({ onGenerated, onNeedsClarification, onCancel }: NewP
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-6">
+    <div className="mx-auto max-w-3xl px-6 py-6">
       <h1 className="mb-6 text-2xl font-semibold">New Project</h1>
 
       <Card>
@@ -105,6 +106,17 @@ export function NewProject({ onGenerated, onNeedsClarification, onCancel }: NewP
           </form>
         </CardContent>
       </Card>
+
+      <div className="mt-4">
+        <StageIntroCard
+          title="What happens next"
+          steps={[
+            "The Extraction Agent pulls out the problem, goals, and target users",
+            "The Clarify Agent asks a short round of questions about anything it can't infer (or accept its recommended defaults)",
+            "You get an editable spec — stories, requirements, architecture decisions, and Jira-ready epics — plus diagrams, briefs, and updates on demand",
+          ]}
+        />
+      </div>
     </div>
   )
 }

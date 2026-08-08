@@ -113,6 +113,11 @@ export function IdentifiedList<T extends Identified>({
 
   return (
     <Section id={sectionId} title={label} icon={icon} count={items.length}>
+      {items.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No {label.toLowerCase()} yet. These are drafted automatically when a spec is generated.
+        </p>
+      )}
       {items.map((item, i) => (
         <EditableBlock
           key={i}

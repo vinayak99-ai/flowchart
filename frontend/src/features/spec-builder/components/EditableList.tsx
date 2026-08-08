@@ -77,6 +77,11 @@ export function EditableList({ id, icon, label, items, onChange, placeholder }: 
   if (id && icon) {
     return (
       <Section id={id} title={label} icon={icon} count={items.length}>
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No {label.toLowerCase()} yet. These are drafted automatically when a spec is generated.
+          </p>
+        )}
         {body}
       </Section>
     )

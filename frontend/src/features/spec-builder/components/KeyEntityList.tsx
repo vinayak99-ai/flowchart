@@ -33,6 +33,11 @@ export function KeyEntityList({ id, icon, items, onChange }: KeyEntityListProps)
 
   return (
     <Section id={id} title="Key entities" icon={icon} count={items.length}>
+      {items.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No key entities yet. These are drafted automatically when a spec is generated.
+        </p>
+      )}
       {items.map((entity, i) => (
         <EditableBlock
           key={i}

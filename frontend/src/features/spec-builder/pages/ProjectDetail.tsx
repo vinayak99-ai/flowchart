@@ -345,7 +345,7 @@ export function ProjectDetail({
                   className={cn(
                     "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
                     viewMode === mode
-                      ? "bg-accent text-accent-foreground"
+                      ? "bg-primary-light text-primary-dark"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -503,6 +503,11 @@ export function ProjectDetail({
                 ) : undefined
               }
             >
+              {prd.user_stories.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No user stories yet. These are drafted automatically when a spec is generated.
+                </p>
+              )}
               {prd.user_stories.map((story, i) => (
                 <UserStoryCard
                   key={i}
