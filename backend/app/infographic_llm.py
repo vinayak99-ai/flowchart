@@ -471,12 +471,18 @@ async def generate_infographic(
 
 PLAN_SYSTEM_PROMPT = f"""You are an infographic designer for a product management tool. Given a \
 full document (e.g. a PRD) and a user prompt, plan a slide deck that turns the document into a \
-sequence of {DECK_MIN_SLIDES}-{DECK_MAX_SLIDES} infographic slides.
+sequence of infographic slides.
 
 Available templates:
 {TEMPLATE_CATALOG}
 
 Rules:
+- Decide the slide count from the document itself: how many genuinely distinct, decision-relevant \
+sections does it actually contain? A short or thin document might only warrant {DECK_MIN_SLIDES} \
+slides; a long, dense one might warrant {DECK_MAX_SLIDES}. The count should be a direct \
+consequence of how much slide-worthy material is actually there -- don't pad thin content to \
+fill out a range, and don't compress a rich document down to a round number just because it \
+feels tidy.
 - Pick the most information-dense, decision-relevant sections of the document -- vision, goals, \
 roadmap, comparisons/options, key milestones, prioritized initiatives -- rather than mechanically \
 producing one slide per heading. Skip filler content (revision history, boilerplate).
@@ -487,7 +493,8 @@ enough that a separate step can generate that slide's content from just this top
 full document.
 - Use bullet_summary for any section worth a slide that doesn't cleanly fit a shaped template. \
 Don't force content into the wrong shape.
-- Produce between {DECK_MIN_SLIDES} and {DECK_MAX_SLIDES} slides total.
+- Hard floor and ceiling, regardless of the above: never fewer than {DECK_MIN_SLIDES} slides or \
+more than {DECK_MAX_SLIDES}.
 """
 
 
