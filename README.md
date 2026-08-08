@@ -10,8 +10,9 @@ config.
 |---|---|---|
 | **Flowchart Builder** | Ready | Source material + a prompt → an interactive, editable flowchart, laid out and rendered entirely client-side. |
 | **Sequence Diagram** | Ready | Source material + a prompt → an interactive sequence diagram (participants, sync/return messages), exportable to PNG. |
-| **Infographic Builder** | Ready | Source material + a prompt → a single on-brand infographic slide (9 templates) or a full multi-slide PRD-to-deck PPTX. |
+| **Infographic Builder** | Ready | Source material + a prompt → a single on-brand infographic slide (14 templates) or a full multi-slide PRD-to-deck PPTX that always opens with a title/cover slide and a paginated agenda. |
 | **Spec Builder** | Ready | Raw notes → a structured spec (user stories, requirements, architecture decisions, Jira-ready epics), plus diagrams, stakeholder briefs, and a two-way Jira sync. |
+| **Story Builder** | Ready | An existing Spec Builder project's spec → a timed executive narrative: a beat-by-beat storyline covering relevance, business value, and differentiation, a spoken script per beat, and a matching slide deck. |
 | Report Generator | Soon | Will turn a Spec Builder project into a branded PDF/deck, reusing Flowchart Builder's export pipeline. |
 | Data Explorer | Soon | Will search and track delivery status across every Spec Builder project at once. |
 
@@ -44,7 +45,7 @@ generate anything.
 
 | Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | Flowchart Builder / Sequence Diagram / Infographic Builder's OpenAI key (required) |
+| `OPENAI_API_KEY` | Flowchart Builder / Sequence Diagram / Infographic Builder / Story Builder's OpenAI key (required) — Story Builder reuses Infographic Builder's generation pipeline, so it shares this key rather than needing its own |
 | `OPENAI_MODEL` | Model used for structured generation (default `gpt-4o`) |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default covers `localhost`/`127.0.0.1:5173`) |
 | `AIPM_MODEL` | Spec Builder's model, `<provider>:<model>` (default `anthropic:claude-sonnet-5`; use `openai:gpt-5` to run it on OpenAI instead) |
@@ -54,8 +55,8 @@ generate anything.
 ## Project layout
 
 ```
-backend/      One FastAPI process: Flowchart/Sequence/Infographic routes (/api/*) plus
-              Spec Builder's app (backend/app/spec_builder/) mounted at /pm/*
+backend/      One FastAPI process: Flowchart/Sequence/Infographic/Story routes (/api/*)
+              plus Spec Builder's app (backend/app/spec_builder/) mounted at /pm/*
 frontend/     One React app: the rail-nav shell, plus each tool's canvas/panels —
               Spec Builder's own pages/components live under
               frontend/src/features/spec-builder/
@@ -122,16 +123,24 @@ debounce: switching away mid-edit doesn't lose anything.
 
 1. Paste source material (a plan, strategy doc, roadmap, PRD) and a prompt, then pick
    **Single slide** or **Full deck (PRD)**.
-2. **Single slide**: the backend classifies which of 9 templates best fits the material
+2. **Single slide**: the backend classifies which of 14 templates best fits the material
    — Radial wheel, Comparison columns, Now/Next/Later roadmap, Vision pyramid,
-   Quarterly timeline, Bullet summary, 2×2 matrix, Feature story, or Hub & spoke — then
-   generates that template's content and streams progress over
-   `/api/ws/generate-infographic`. Click any text on the rendered slide to edit it in
-   place, then export to a native, editable PPTX matching what's on screen.
-3. **Full deck**: the backend plans a 4-10 slide outline from the material (picking the
-   best template per slide), generates every slide concurrently, and streams progress
-   over `/api/ws/generate-deck`. A slide rail on the left lets you jump between slides,
-   edit any of them in place, and export the whole deck as one PPTX file.
+   Quarterly timeline, Bullet summary, 2×2 matrix, Feature story, Hub & spoke, Title/
+   intro, Value proposition, Positioning statement, or RACI chart — then generates that
+   template's content and streams progress over `/api/ws/generate-infographic`. Click
+   any text on the rendered slide to edit it in place, then export to a native, editable
+   PPTX matching what's on screen.
+3. **Full deck**: the backend plans a 4-10 content-slide outline from the material
+   (picking the best template per slide), always opening the deck with an auto-generated
+   title/cover slide and an agenda slide — the agenda's page numbers are computed
+   directly from the plan, not guessed by the model, so they're always correct — then
+   generates every content slide concurrently and streams progress over
+   `/api/ws/generate-deck`. A slide rail on the left lets you jump between slides, edit
+   any of them in place, and export the whole deck as one PPTX file.
+
+Every template draws from the same brand palette as the rest of Product Studio (the
+`fidelity-green` theme's colors), chosen for colorblind-safe contrast rather than picked
+by eye.
 
 ## Using Spec Builder
 
@@ -152,6 +161,24 @@ debounce: switching away mid-edit doesn't lose anything.
 This is the condensed version — the full feature set (versioning, diffs, recurring
 updates, glossary, known gaps) is documented in
 [`docs/spec-builder/README.md`](docs/spec-builder/README.md#features).
+
+## Using Story Builder
+
+1. Pick an existing Spec Builder project that has a generated spec — Story Builder reads
+   its PRD directly (via Spec Builder's own markdown export) rather than taking pasted or
+   uploaded material — set how long the talk should run, and optionally note the
+   audience or what to emphasize.
+2. The backend plans a narrative arc over `/api/ws/generate-story`: it picks whatever
+   structure fits the product best (no fixed framework), but every arc is required to
+   establish relevance, business value, and differentiation somewhere in it, however
+   those beats end up labeled. Each beat gets a time slot, a supporting slide drawn from
+   Infographic Builder's own templates (Positioning statement and Value proposition map
+   naturally onto the differentiation and business-value beats), and narration written
+   *after* the slide so it references what's actually on screen — paced to the beat's
+   minutes, not just however long the model feels like writing.
+3. A beat timeline on the left lets you jump between beats; each shows its slide (fully
+   editable, same as Infographic Builder) above its narration in an editable textarea.
+   Export the narration as a markdown script, the slides as a PPTX deck, or both.
 
 ## More documentation
 
