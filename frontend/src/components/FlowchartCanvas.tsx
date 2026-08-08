@@ -7,6 +7,8 @@ import { themePalettes, type ThemeName } from '../lib/themes'
 import type { FlowchartDiagram } from '../types'
 import { DiagramNodeComponent, type DiagramFlowNode } from './nodes/DiagramNodeComponent'
 import { DiagramEdgeComponent, type DiagramFlowEdge } from './edges/DiagramEdgeComponent'
+import { EmptyCanvasState } from './EmptyCanvasState'
+import { FlowchartIcon } from './icons/ToolIcons'
 
 interface FlowchartCanvasProps {
   diagram: FlowchartDiagram | null
@@ -104,13 +106,16 @@ export const FlowchartCanvas = forwardRef<FlowchartCanvasHandle, FlowchartCanvas
     return (
       <div ref={containerRef} className="relative h-full w-full bg-neutral-50">
         {isEmpty ? (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center text-neutral-600">
-            <p className="text-sm font-medium">No flowchart yet</p>
-            <p className="max-w-xs text-xs">
-              Add source material and a prompt in the panel on the left, then generate to see your
-              flowchart here.
-            </p>
-          </div>
+          <EmptyCanvasState
+            icon={FlowchartIcon}
+            title="No flowchart yet"
+            description="Turn a process doc, transcript, or set of steps into an editable flowchart."
+            tips={[
+              'Paste your source material in the panel on the left',
+              'Add a one-line prompt describing what to focus on',
+              'Generate — layout, theme, and export apply automatically',
+            ]}
+          />
         ) : (
           <ReactFlow
             nodes={nodes}

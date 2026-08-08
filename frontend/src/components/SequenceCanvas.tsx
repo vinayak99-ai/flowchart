@@ -6,6 +6,8 @@ import { themePalettes, type ThemeName } from '../lib/themes'
 import type { SequenceDiagram } from '../sequenceTypes'
 import { LifelineNode, type LifelineFlowNode } from './sequence/LifelineNode'
 import { MessageEdge, type MessageFlowEdge } from './sequence/MessageEdge'
+import { EmptyCanvasState } from './EmptyCanvasState'
+import { SequenceIcon } from './icons/ToolIcons'
 
 interface SequenceCanvasProps {
   diagram: SequenceDiagram | null
@@ -83,9 +85,16 @@ export const SequenceCanvas = forwardRef<SequenceCanvasHandle, SequenceCanvasPro
     return (
       <div ref={containerRef} className="relative h-full w-full bg-neutral-50">
         {isEmpty ? (
-          <div className="flex h-full items-center justify-center text-sm text-neutral-500">
-            Generate a sequence diagram to see it here.
-          </div>
+          <EmptyCanvasState
+            icon={SequenceIcon}
+            title="No sequence diagram yet"
+            description="Turn a flow description into participants, messages, and returns."
+            tips={[
+              'Paste your source material in the panel on the left',
+              'Add a one-line prompt describing what to focus on',
+              'Generate — participants and messages lay out automatically',
+            ]}
+          />
         ) : (
           <ReactFlow
             nodes={nodes}

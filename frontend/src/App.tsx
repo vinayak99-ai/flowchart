@@ -12,6 +12,7 @@ import { InfographicCanvas } from './components/InfographicCanvas'
 import { DeckCanvas } from './components/DeckCanvas'
 import { StorySidebar } from './components/StorySidebar'
 import { StoryCanvas } from './components/StoryCanvas'
+import { DesignThinkingPage } from './components/DesignThinkingPage'
 import { ExportControls } from './components/ExportControls'
 import { SequenceExportControls } from './components/SequenceExportControls'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -25,7 +26,7 @@ import type { GenerateDeckResponse, GenerateInfographicResponse } from './infogr
 import type { StoryScript } from './storyTypes'
 
 function App() {
-  const [activeTool, setActiveTool] = useState<ToolId>('flowchart')
+  const [activeTool, setActiveTool] = useState<ToolId>('design_thinking')
   const [result, setResult] = useState<GenerateResponse | null>(null)
   const [sequenceResult, setSequenceResult] = useState<GenerateSequenceResponse | null>(null)
   const [infographicMode, setInfographicMode] = useState<InfographicMode>('single')
@@ -163,6 +164,13 @@ function App() {
           <main className="flex min-w-0 flex-1 flex-col">
             <StoryCanvas story={storyResult} onStoryChange={setStoryResult} />
           </main>
+        </div>
+
+        {/* Same always-mounted+hidden pattern as every other tool above --
+            a PM can be several stages into a session; switching tabs must
+            not lose it. */}
+        <div className={`min-h-0 flex-1 ${activeTool === 'design_thinking' ? 'flex' : 'hidden'}`}>
+          <DesignThinkingPage />
         </div>
 
         {comingSoonTool ? <ComingSoonPanel tool={comingSoonTool} /> : null}

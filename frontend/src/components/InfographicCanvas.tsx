@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { exportInfographicPptx } from '../lib/api'
 import type { InfographicDiagram } from '../infographicTypes'
 import { TEMPLATE_LABEL, renderInfographicPreview } from './infographic/previewRegistry'
+import { EmptyCanvasState } from './EmptyCanvasState'
+import { InfographicIcon } from './icons/ToolIcons'
 
 interface InfographicCanvasProps {
   diagram: InfographicDiagram | null
@@ -45,8 +47,19 @@ export function InfographicCanvas({ diagram, onDiagramChange }: InfographicCanva
         </button>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center bg-neutral-50 p-8">
-        {diagram ? renderInfographicPreview(diagram, onDiagramChange) : (
-          <p className="text-sm text-neutral-500">Generate an infographic to see it here.</p>
+        {diagram ? (
+          renderInfographicPreview(diagram, onDiagramChange)
+        ) : (
+          <EmptyCanvasState
+            icon={InfographicIcon}
+            title="No infographic yet"
+            description="Turn source material into one on-brand slide — the best-fitting template is picked automatically."
+            tips={[
+              'Paste your source material in the panel on the left',
+              'Add a one-line prompt describing what to focus on',
+              'Generate — every field stays editable afterward',
+            ]}
+          />
         )}
       </div>
     </div>

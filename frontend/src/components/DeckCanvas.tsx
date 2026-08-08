@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { exportDeckPptx } from '../lib/api'
 import type { GenerateDeckResponse, InfographicDiagram } from '../infographicTypes'
 import { TEMPLATE_LABEL, renderInfographicPreview } from './infographic/previewRegistry'
+import { EmptyCanvasState } from './EmptyCanvasState'
+import { InfographicIcon } from './icons/ToolIcons'
 
 interface DeckCanvasProps {
   deck: GenerateDeckResponse | null
@@ -87,8 +89,17 @@ export function DeckCanvas({ deck, onDeckChange }: DeckCanvasProps) {
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center bg-neutral-50">
-            <p className="text-sm text-neutral-500">Build a deck to see slides here.</p>
+          <div className="flex flex-1 bg-neutral-50">
+            <EmptyCanvasState
+              icon={InfographicIcon}
+              title="No deck yet"
+              description="Turn a full document (a PRD, plan, or strategy doc) into a multi-slide deck, one template per section."
+              tips={[
+                'Switch to "Full deck (PRD)" mode and paste the whole document',
+                'The planner opens with a title + agenda, then picks a template per section',
+                'Build — every slide stays editable, and exports as one .pptx',
+              ]}
+            />
           </div>
         )}
       </div>

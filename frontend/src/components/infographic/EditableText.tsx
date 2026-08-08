@@ -4,7 +4,7 @@ import type { CSSProperties, ClipboardEvent, ElementType, FocusEvent, KeyboardEv
 interface EditableTextProps {
   value: string
   onCommit: (value: string) => void
-  as?: 'span' | 'div' | 'p' | 'h2'
+  as?: 'span' | 'div' | 'p' | 'h2' | 'h3'
   className?: string
   style?: CSSProperties
   multiline?: boolean

@@ -63,6 +63,16 @@ export function StoryIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function DesignThinkingIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
+      <path d="M12 3a6.5 6.5 0 0 0-3.8 11.8c.6.45 1 1.15 1 1.95V17h5.6v-.25c0-.8.4-1.5 1-1.95A6.5 6.5 0 0 0 12 3Z" />
+      <path d="M9.5 20h5M10.3 17v1.4a1.2 1.2 0 0 0 1.2 1.2h1a1.2 1.2 0 0 0 1.2-1.2V17" />
+      <path d="M12 6.7v3.6M10 8.7l2 1.6 2-1.6" />
+    </svg>
+  )
+}
+
 export function DataIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>

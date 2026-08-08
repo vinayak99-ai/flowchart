@@ -1,7 +1,24 @@
 import type { ComponentType, SVGProps } from 'react'
-import { DataIcon, FlowchartIcon, InfographicIcon, ReportIcon, SequenceIcon, SpecIcon, StoryIcon } from '../components/icons/ToolIcons'
+import {
+  DataIcon,
+  DesignThinkingIcon,
+  FlowchartIcon,
+  InfographicIcon,
+  ReportIcon,
+  SequenceIcon,
+  SpecIcon,
+  StoryIcon,
+} from '../components/icons/ToolIcons'
 
-export type ToolId = 'flowchart' | 'sequence' | 'infographic' | 'spec' | 'story' | 'reports' | 'data'
+export type ToolId =
+  | 'design_thinking'
+  | 'spec'
+  | 'sequence'
+  | 'flowchart'
+  | 'infographic'
+  | 'story'
+  | 'reports'
+  | 'data'
 
 export interface ToolDef {
   id: ToolId
@@ -14,10 +31,19 @@ export interface ToolDef {
 
 export const TOOLS: ToolDef[] = [
   {
-    id: 'flowchart',
-    label: 'Flowchart Builder',
+    id: 'design_thinking',
+    label: 'Design Thinking',
     status: 'ready',
-    icon: FlowchartIcon,
+    icon: DesignThinkingIcon,
+    description:
+      'Empathize, Define, Ideate, Prototype, and Test a problem before you spec it -- exports a ' +
+      'markdown file you can upload straight into a new Spec Builder project.',
+  },
+  {
+    id: 'spec',
+    label: 'Spec Builder',
+    status: 'ready',
+    icon: SpecIcon,
   },
   {
     id: 'sequence',
@@ -26,16 +52,16 @@ export const TOOLS: ToolDef[] = [
     icon: SequenceIcon,
   },
   {
+    id: 'flowchart',
+    label: 'Flowchart Builder',
+    status: 'ready',
+    icon: FlowchartIcon,
+  },
+  {
     id: 'infographic',
     label: 'Infographic Builder',
     status: 'ready',
     icon: InfographicIcon,
-  },
-  {
-    id: 'spec',
-    label: 'Spec Builder',
-    status: 'ready',
-    icon: SpecIcon,
   },
   {
     id: 'story',
