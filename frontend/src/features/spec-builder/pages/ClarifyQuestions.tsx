@@ -80,7 +80,7 @@ export function ClarifyQuestions({
   const questionsUsed = answeredHistory.length + questions.length
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-6">
+    <div className="px-6 py-6">
       <h1 className="mb-1 text-2xl font-semibold">
         {round === 1 ? "A few questions first" : "One more thing"}
       </h1>

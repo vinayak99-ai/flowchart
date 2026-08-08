@@ -77,7 +77,7 @@ export function ProjectList({ onSelectProject, onNewProject }: ProjectListProps)
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6">
+    <div className="px-6 py-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Projects</h1>
         <Button onClick={onNewProject}>New Project</Button>
