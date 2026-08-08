@@ -119,6 +119,42 @@ export interface AgendaSlide {
   items: AgendaItem[]
 }
 
+export interface ValuePropositionSlide {
+  template: 'value_proposition'
+  title: string
+  customer_jobs: string[]
+  customer_pains: string[]
+  customer_gains: string[]
+  products_services: string[]
+  pain_relievers: string[]
+  gain_creators: string[]
+}
+
+export interface PositioningStatementSlide {
+  template: 'positioning_statement'
+  product_name: string
+  target_customer: string
+  need: string
+  category: string
+  key_benefit: string
+  primary_alternative: string
+  differentiator: string
+}
+
+export interface RaciRow {
+  task: string
+  responsible: string
+  accountable: string
+  consulted: string
+  informed: string
+}
+
+export interface RaciChartSlide {
+  template: 'raci_chart'
+  title: string
+  rows: RaciRow[]
+}
+
 export type InfographicDiagram =
   | InfographicWheel
   | InfographicComparison
@@ -131,6 +167,9 @@ export type InfographicDiagram =
   | InfographicHubSpoke
   | TitleSlide
   | AgendaSlide
+  | ValuePropositionSlide
+  | PositioningStatementSlide
+  | RaciChartSlide
 
 export interface GenerateInfographicResponse {
   diagram: InfographicDiagram

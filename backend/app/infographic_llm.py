@@ -19,10 +19,13 @@ from app.infographic_models import (
     PYRAMID_MIN_PILLARS,
     ROADMAP_COLUMN_COUNT,
     ROADMAP_ITEM_COUNT,
+    RACI_MAX_ROWS,
+    RACI_MIN_ROWS,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
     TITLE_HIGHLIGHT_MAX,
     TITLE_HIGHLIGHT_MIN,
+    VALUE_PROP_MAX_ITEMS,
     AgendaItem,
     AgendaSlide,
     BulletSummarySlide,
@@ -39,7 +42,10 @@ from app.infographic_models import (
     InfographicTemplateId,
     InfographicTimeline,
     InfographicWheel,
+    PositioningStatementSlide,
+    RaciChartSlide,
     TitleSlide,
+    ValuePropositionSlide,
     WHEEL_ITEM_COUNT,
 )
 
@@ -68,6 +74,17 @@ items along two dimensions at once, not just listing or sequencing them.
 was built, and the business impact delivered -- as a causal Problem -> Solution -> Impact arc. \
 Best for a stakeholder update on a single piece of work, not a roadmap of multiple initiatives \
 (now_next_later) or a comparison of options (comparison_columns).
+- value_proposition: a Value Proposition Canvas -- the customer's jobs/pains/gains mapped \
+against the product's offerings/pain-relievers/gain-creators. Best when the material argues the \
+product's business value by showing which customer need each part of it answers, not just a \
+number.
+- positioning_statement: the classic elevator-pitch mad-lib ("For [customer] who [need], \
+[product] is a [category] that [benefit]. Unlike [alternative], we [differentiator].") for the \
+WHOLE product, not one feature. Best when the material describes market positioning, a target \
+customer, or a competitive differentiator for the product as a whole.
+- raci_chart: who owns what for an initiative -- one row per task with a Responsible/ \
+Accountable/Consulted/Informed name in each column. Best when the material assigns ownership or \
+decision rights, not when it's just describing what will be built.
 - bullet_summary: a plain title + a short bullet list. Use this whenever content doesn't \
 cleanly fit any of the shaped templates above -- it's the flexible fallback, not a last resort \
 to avoid; forcing a poor fit into a shaped template is worse than a clean bullet list."""
@@ -534,6 +551,138 @@ async def generate_infographic_agenda(material: str, prompt: str) -> AgendaSlide
     return parsed
 
 
+VALUE_PROPOSITION_SYSTEM_PROMPT = f"""You are a product strategist building a Value Proposition \
+Canvas (Osterwalder) to make the business case for a product. Given source material and a user \
+prompt, derive a value proposition as JSON matching the provided schema.
+
+Rules:
+- `title` is a short 2-5 word name (e.g. "Value Proposition", "Why It Matters").
+- `customer_jobs` (up to {VALUE_PROP_MAX_ITEMS}): what the customer is actually trying to get \
+done -- tasks, goals, or problems they're solving, not features they've asked for.
+- `customer_pains` (up to {VALUE_PROP_MAX_ITEMS}): the bad outcomes, risks, or frustrations the \
+customer experiences today, before this product.
+- `customer_gains` (up to {VALUE_PROP_MAX_ITEMS}): the outcomes and benefits the customer wants -- \
+what success looks like to them.
+- `products_services` (up to {VALUE_PROP_MAX_ITEMS}): the concrete parts of the product that \
+address the jobs above.
+- `pain_relievers` (up to {VALUE_PROP_MAX_ITEMS}): specifically how the product removes or eases \
+each pain above -- these should map to `customer_pains`, not restate the product's features.
+- `gain_creators` (up to {VALUE_PROP_MAX_ITEMS}): specifically how the product produces the gains \
+above -- these should map to `customer_gains`.
+- Keep every item short (under 10 words). Base everything on what the source material actually \
+describes. Do not invent a job, pain, or gain that isn't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_value_proposition(material: str, prompt: str) -> ValuePropositionSlide:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": VALUE_PROPOSITION_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=ValuePropositionSlide,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed value proposition.")
+    return parsed
+
+
+POSITIONING_SYSTEM_PROMPT = """You are a product marketer writing the standard Geoffrey Moore \
+positioning statement for a WHOLE product (not one feature). Given source material and a user \
+prompt, derive the statement's slots as JSON matching the provided schema. The slots assemble \
+into: "For [target_customer] who [need], [product_name] is a [category] that [key_benefit]. \
+Unlike [primary_alternative], we [differentiator]."
+
+Rules:
+- `product_name` is the product's actual name.
+- `target_customer` is a short noun phrase for who it's for (e.g. "product managers at growing \
+teams"), not a full sentence.
+- `need` completes "...who ___" -- the need or situation that makes this product relevant, in a \
+few words, not a full sentence.
+- `category` is the product category, a short noun phrase (e.g. "AI-assisted PM workspace").
+- `key_benefit` completes "...that ___" -- the single main benefit, as a short phrase.
+- `primary_alternative` is what people do today instead (a competitor, a manual process, or "the \
+status quo") -- a short noun phrase.
+- `differentiator` completes "...we ___" -- what specifically makes this product different from \
+that alternative, as a short phrase.
+- Every slot should read naturally as a continuation of the sentence template above -- write \
+phrases, not full sentences, and don't restate words already in the template ("is a", "unlike", \
+etc.) inside your slot values.
+- Base everything on what the source material actually describes. Do not invent a claim that \
+isn't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_positioning(material: str, prompt: str) -> PositioningStatementSlide:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": POSITIONING_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=PositioningStatementSlide,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed positioning statement.")
+    return parsed
+
+
+RACI_SYSTEM_PROMPT = f"""You are a PM documenting decision rights for an initiative as a RACI \
+chart. Given source material and a user prompt, derive the chart as JSON matching the provided \
+schema.
+
+Rules:
+- `title` is a short 2-6 word name (e.g. "RACI: Platform Expansion").
+- `rows` must contain between {RACI_MIN_ROWS} and {RACI_MAX_ROWS} entries, one per distinct task \
+or decision the material assigns ownership for.
+- Each row's `task` is a short 2-6 word name for that task/decision.
+- `responsible` is who does the work; `accountable` is who owns the outcome (usually one person, \
+even if `responsible` names a team); `consulted` is whose input is sought before acting; \
+`informed` is who's kept in the loop after. Each is a short name, role, or team (e.g. "Eng team", \
+"Dana (PM)") -- under 5 words.
+- If the material doesn't name real people/teams for a role, use a role description instead of \
+inventing a name (e.g. "Engineering lead", not a made-up person).
+- Base everything on what the source material actually describes. Do not invent tasks or \
+ownership that aren't implied by the material or prompt.
+"""
+
+
+async def generate_infographic_raci(material: str, prompt: str) -> RaciChartSlide:
+    settings = get_settings()
+    client = AsyncOpenAI(api_key=settings.openai_api_key)
+
+    user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
+
+    completion = await client.beta.chat.completions.parse(
+        model=settings.openai_model,
+        messages=[
+            {"role": "system", "content": RACI_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        response_format=RaciChartSlide,
+    )
+
+    parsed = completion.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("OpenAI response did not include a parsed RACI chart.")
+    return parsed
+
+
 async def generate_infographic(
     template: InfographicTemplateId, material: str, prompt: str
 ) -> InfographicDiagram:
@@ -557,6 +706,12 @@ async def generate_infographic(
         return await generate_infographic_title(material, prompt)
     if template == "agenda":
         return await generate_infographic_agenda(material, prompt)
+    if template == "value_proposition":
+        return await generate_infographic_value_proposition(material, prompt)
+    if template == "positioning_statement":
+        return await generate_infographic_positioning(material, prompt)
+    if template == "raci_chart":
+        return await generate_infographic_raci(material, prompt)
     return await generate_infographic_wheel(material, prompt)
 
 

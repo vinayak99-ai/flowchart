@@ -10,6 +10,9 @@ import { StoryPreview } from './StoryPreview'
 import { HubSpokePreview } from './HubSpokePreview'
 import { TitlePreview } from './TitlePreview'
 import { AgendaPreview } from './AgendaPreview'
+import { ValuePropositionPreview } from './ValuePropositionPreview'
+import { PositioningStatementPreview } from './PositioningStatementPreview'
+import { RaciPreview } from './RaciPreview'
 
 // Shared between the single-infographic canvas and the multi-slide deck
 // canvas, so both render every template the exact same way rather than
@@ -26,6 +29,9 @@ export const TEMPLATE_LABEL: Record<InfographicDiagram['template'], string> = {
   hub_spoke: 'Hub & spoke',
   title_intro: 'Title / intro',
   agenda: 'Agenda',
+  value_proposition: 'Value proposition',
+  positioning_statement: 'Positioning statement',
+  raci_chart: 'RACI chart',
 }
 
 export function renderInfographicPreview(
@@ -97,6 +103,24 @@ export function renderInfographicPreview(
       return (
         <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
           <AgendaPreview agenda={diagram} onChange={onChange} />
+        </div>
+      )
+    case 'value_proposition':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <ValuePropositionPreview value={diagram} onChange={onChange} />
+        </div>
+      )
+    case 'positioning_statement':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <PositioningStatementPreview positioning={diagram} onChange={onChange} />
+        </div>
+      )
+    case 'raci_chart':
+      return (
+        <div className="aspect-[16/9] w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
+          <RaciPreview raci={diagram} onChange={onChange} />
         </div>
       )
   }

@@ -123,6 +123,9 @@ const INFOGRAPHIC_FILENAMES: Record<InfographicDiagram['template'], string> = {
   hub_spoke: 'infographic-hub-spoke.pptx',
   title_intro: 'infographic-title.pptx',
   agenda: 'infographic-agenda.pptx',
+  value_proposition: 'infographic-value-proposition.pptx',
+  positioning_statement: 'infographic-positioning.pptx',
+  raci_chart: 'infographic-raci.pptx',
 }
 
 // The deliverable here is the actual .pptx file (the template, populated

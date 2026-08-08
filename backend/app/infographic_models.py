@@ -21,6 +21,9 @@ MATRIX_ITEM_COUNT = 4
 HUB_SPOKE_ITEM_COUNT = 6
 TITLE_HIGHLIGHT_MIN = 3
 TITLE_HIGHLIGHT_MAX = 5
+VALUE_PROP_MAX_ITEMS = 3
+RACI_MIN_ROWS = 3
+RACI_MAX_ROWS = 6
 DECK_MIN_SLIDES = 4
 DECK_MAX_SLIDES = 10
 
@@ -36,6 +39,9 @@ InfographicTemplateId = Literal[
     "hub_spoke",
     "title_intro",
     "agenda",
+    "value_proposition",
+    "positioning_statement",
+    "raci_chart",
 ]
 
 
@@ -194,6 +200,60 @@ class AgendaSlide(BaseModel):
     items: list[AgendaItem] = Field(default_factory=list)
 
 
+class ValuePropositionSlide(BaseModel):
+    """A Value Proposition Canvas (Osterwalder): the customer's jobs,
+    pains, and gains on one side, mapped to the product's offerings, pain
+    relievers, and gain creators on the other -- makes the business value
+    argument by showing exactly which customer need each part of the
+    product answers, rather than asserting value with a metric alone."""
+
+    template: Literal["value_proposition"] = "value_proposition"
+    title: str
+    customer_jobs: list[str] = Field(default_factory=list)
+    customer_pains: list[str] = Field(default_factory=list)
+    customer_gains: list[str] = Field(default_factory=list)
+    products_services: list[str] = Field(default_factory=list)
+    pain_relievers: list[str] = Field(default_factory=list)
+    gain_creators: list[str] = Field(default_factory=list)
+
+
+class PositioningStatementSlide(BaseModel):
+    """The Geoffrey Moore positioning statement -- the standard elevator
+    pitch mad-lib: "For [target_customer] who [need], [product_name] is a
+    [category] that [key_benefit]. Unlike [primary_alternative], we
+    [differentiator]." Rendered as one assembled sentence with the filled
+    slots visually emphasized, so it reads as a single narrative rather
+    than a form."""
+
+    template: Literal["positioning_statement"] = "positioning_statement"
+    product_name: str
+    target_customer: str
+    need: str
+    category: str
+    key_benefit: str
+    primary_alternative: str
+    differentiator: str
+
+
+class RaciRow(BaseModel):
+    task: str
+    responsible: str
+    accountable: str
+    consulted: str
+    informed: str
+
+
+class RaciChartSlide(BaseModel):
+    """Who owns what for an initiative: one row per task/decision, with a
+    name or role in each of the 4 RACI columns -- Responsible (does the
+    work), Accountable (owns the outcome), Consulted (input sought),
+    Informed (kept in the loop)."""
+
+    template: Literal["raci_chart"] = "raci_chart"
+    title: str
+    rows: list[RaciRow] = Field(default_factory=list)
+
+
 # Tagged on `template` so a single LLM call's output (and the export request
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
@@ -208,7 +268,10 @@ InfographicDiagram = Annotated[
     | FeatureStory
     | InfographicHubSpoke
     | TitleSlide
-    | AgendaSlide,
+    | AgendaSlide
+    | ValuePropositionSlide
+    | PositioningStatementSlide
+    | RaciChartSlide,
     Field(discriminator="template"),
 ]
 

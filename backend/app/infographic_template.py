@@ -20,8 +20,10 @@ from app.infographic_models import (
     PYRAMID_MIN_PILLARS,
     ROADMAP_COLUMN_COUNT,
     ROADMAP_ITEM_COUNT,
+    RACI_MAX_ROWS,
     TIMELINE_MAX_MILESTONES,
     TITLE_HIGHLIGHT_MAX,
+    VALUE_PROP_MAX_ITEMS,
     AgendaSlide,
     BulletSummarySlide,
     FeatureStory,
@@ -35,9 +37,12 @@ from app.infographic_models import (
     InfographicTimeline,
     InfographicWheel,
     MatrixQuadrant,
+    PositioningStatementSlide,
     PyramidPillar,
+    RaciChartSlide,
     RoadmapColumn,
     TitleSlide,
+    ValuePropositionSlide,
     WheelItem,
 )
 
@@ -168,6 +173,41 @@ AGENDA_LIST_LEFT_IN = 1.5
 AGENDA_LIST_WIDTH_IN = 10.3
 AGENDA_ROW_H_IN = 0.66
 AGENDA_CHIP_SIZE_IN = 0.5
+
+VALUE_PROP_TITLE_Y_IN = 0.5
+VALUE_PROP_PANEL_TOP_IN = 1.25
+VALUE_PROP_PANEL_H_IN = 5.8
+VALUE_PROP_PANEL_W_IN = 5.5
+VALUE_PROP_LEFT_X_IN = 0.7
+VALUE_PROP_RIGHT_X_IN = 7.15
+VALUE_PROP_HEADER_H_IN = 0.5
+VALUE_PROP_BADGE_SIZE_IN = 0.7
+# Bronze for the customer side, brand green for the product side --
+# matches the story template's "problem is warm/bronze, solution is green"
+# convention, kept consistent across templates that pair a need with an
+# answer to it.
+VALUE_PROP_CUSTOMER_COLOR = "8A5A0A"
+VALUE_PROP_PRODUCT_COLOR = "00754A"
+
+POSITIONING_EYEBROW_Y_IN = 0.6
+POSITIONING_CARD_TOP_IN = 1.5
+POSITIONING_CARD_H_IN = 4.6
+POSITIONING_CARD_MARGIN_IN = 1.0
+POSITIONING_BOTTOM_BAR_H_IN = 0.14
+# Cycled across the sentence's filled-in slots so each one reads as a
+# distinct piece of the pitch rather than a wall of bold text.
+POSITIONING_RUN_COLORS = ["00754A", "C9A227", "14B0A0", "8A5A0A"]
+
+RACI_TITLE_Y_IN = 0.5
+RACI_TABLE_TOP_IN = 1.35
+RACI_TABLE_LEFT_IN = 0.7
+RACI_TABLE_W_IN = 11.9
+RACI_TASK_COL_W_IN = 4.2
+RACI_ROLE_COL_W_IN = (RACI_TABLE_W_IN - RACI_TASK_COL_W_IN) / 4
+RACI_HEADER_H_IN = 0.75
+RACI_ROW_H_IN = 0.85
+RACI_ROLE_LABELS = [("R", "Responsible"), ("A", "Accountable"), ("C", "Consulted"), ("I", "Informed")]
+RACI_ROLE_COLORS = ["00754A", "C9A227", "14B0A0", "8A5A0A"]
 
 
 def _new_presentation() -> Presentation:
@@ -1321,6 +1361,303 @@ def build_agenda_pptx(data: AgendaSlide) -> bytes:
     return _save_bytes(prs)
 
 
+def _draw_value_prop_panel(
+    slide, x_in: float, panel_label: str, sections: list[tuple[str, list[str]]], header_color: str
+) -> None:
+    """One side of the value-proposition canvas: a header bar naming the
+    side (Customer / Our Product), then 3 stacked labeled mini-lists.
+    Shared by both sides so their spacing math can't drift apart."""
+    card = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(x_in), Inches(VALUE_PROP_PANEL_TOP_IN), Inches(VALUE_PROP_PANEL_W_IN), Inches(VALUE_PROP_PANEL_H_IN),
+    )
+    card.adjustments[0] = 0.03
+    _set_fill(card, "FFFFFF")
+    card.line.color.rgb = RGBColor.from_string("E4E1D8")
+    card.line.width = Pt(1)
+    card.line.fill.solid()
+    card.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+    card.shadow.inherit = False
+
+    header = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(x_in), Inches(VALUE_PROP_PANEL_TOP_IN), Inches(VALUE_PROP_PANEL_W_IN), Inches(VALUE_PROP_HEADER_H_IN),
+    )
+    _set_fill(header, header_color)
+    header.shadow.inherit = False
+    _add_label(
+        slide, x_in + VALUE_PROP_PANEL_W_IN / 2, VALUE_PROP_PANEL_TOP_IN + VALUE_PROP_HEADER_H_IN / 2,
+        VALUE_PROP_PANEL_W_IN - 0.3, panel_label,
+        size=15, bold=True, color="FFFFFF", h_in=VALUE_PROP_HEADER_H_IN - 0.1,
+    )
+
+    body_top = VALUE_PROP_PANEL_TOP_IN + VALUE_PROP_HEADER_H_IN
+    body_h = VALUE_PROP_PANEL_H_IN - VALUE_PROP_HEADER_H_IN
+    section_h = body_h / len(sections)
+    label_h = 0.3
+    text_left = x_in + 0.3
+    text_w = VALUE_PROP_PANEL_W_IN - 0.55
+
+    for i, (label, items) in enumerate(sections):
+        sy = body_top + i * section_h
+
+        label_box = slide.shapes.add_textbox(Inches(text_left), Inches(sy + 0.08), Inches(text_w), Inches(label_h))
+        tf = label_box.text_frame
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = label
+        run.font.size = Pt(12)
+        run.font.bold = True
+        run.font.color.rgb = RGBColor.from_string(header_color)
+        run.font.name = "Arial"
+
+        items = items[:VALUE_PROP_MAX_ITEMS]
+        rows_top = sy + label_h + 0.1
+        rows_h = section_h - label_h - 0.15
+        row_h = rows_h / VALUE_PROP_MAX_ITEMS
+        for j, item in enumerate(items):
+            row_y = rows_top + j * row_h
+            dot = slide.shapes.add_shape(
+                MSO_SHAPE.OVAL, Inches(text_left), Inches(row_y + row_h / 2 - 0.035), Inches(0.07), Inches(0.07),
+            )
+            _set_fill(dot, header_color)
+            dot.shadow.inherit = False
+
+            text_box = slide.shapes.add_textbox(
+                Inches(text_left + 0.2), Inches(row_y), Inches(text_w - 0.2), Inches(row_h)
+            )
+            tf = text_box.text_frame
+            tf.word_wrap = True
+            tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+            tf.margin_left = 0
+            tf.margin_right = 0
+            tf.margin_top = 0
+            tf.margin_bottom = 0
+            p = tf.paragraphs[0]
+            run = p.add_run()
+            run.text = item
+            run.font.size = Pt(10.5)
+            run.font.color.rgb = RGBColor.from_string("2A2E29")
+            run.font.name = "Arial"
+
+
+def add_value_proposition_slide(prs: Presentation, data: ValuePropositionSlide) -> None:
+    """A Value Proposition Canvas: customer jobs/pains/gains on the left,
+    the product's offerings/relievers/creators on the right, with a small
+    badge marking the fit between them -- the business-value argument made
+    by showing which need each part of the product answers, rather than a
+    metric asserted on its own.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, VALUE_PROP_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
+        size=26, bold=True, color="1B1F1C", h_in=0.7,
+    )
+
+    _draw_value_prop_panel(
+        slide, VALUE_PROP_LEFT_X_IN, "CUSTOMER",
+        [("JOBS", data.customer_jobs), ("PAINS", data.customer_pains), ("GAINS", data.customer_gains)],
+        VALUE_PROP_CUSTOMER_COLOR,
+    )
+    _draw_value_prop_panel(
+        slide, VALUE_PROP_RIGHT_X_IN, "OUR PRODUCT",
+        [("PRODUCTS & SERVICES", data.products_services), ("PAIN RELIEVERS", data.pain_relievers), ("GAIN CREATORS", data.gain_creators)],
+        VALUE_PROP_PRODUCT_COLOR,
+    )
+
+    badge_cx = SLIDE_W_IN / 2
+    badge_cy = VALUE_PROP_PANEL_TOP_IN + VALUE_PROP_PANEL_H_IN / 2
+    badge = slide.shapes.add_shape(
+        MSO_SHAPE.OVAL,
+        Inches(badge_cx - VALUE_PROP_BADGE_SIZE_IN / 2), Inches(badge_cy - VALUE_PROP_BADGE_SIZE_IN / 2),
+        Inches(VALUE_PROP_BADGE_SIZE_IN), Inches(VALUE_PROP_BADGE_SIZE_IN),
+    )
+    _set_fill(badge, BRAND_COLORS[1])
+    badge.line.color.rgb = RGBColor.from_string("FFFFFF")
+    badge.line.width = Pt(3)
+    badge.line.fill.solid()
+    badge.line.fill.fore_color.rgb = RGBColor.from_string("FFFFFF")
+    badge.shadow.inherit = False
+    _add_label(
+        slide, badge_cx, badge_cy, VALUE_PROP_BADGE_SIZE_IN - 0.1, "FIT",
+        size=13, bold=True, color="FFFFFF", h_in=VALUE_PROP_BADGE_SIZE_IN - 0.1,
+    )
+
+
+def build_value_proposition_pptx(data: ValuePropositionSlide) -> bytes:
+    prs = _new_presentation()
+    add_value_proposition_slide(prs, data)
+    return _save_bytes(prs)
+
+
+def add_positioning_statement_slide(prs: Presentation, data: PositioningStatementSlide) -> None:
+    """The Geoffrey Moore positioning statement, assembled as one sentence
+    with the filled-in slots color-emphasized -- deliberately a single
+    flowing narrative (multiple runs in one paragraph) rather than a form
+    of labeled fields, since the point is that it reads aloud as a pitch.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, POSITIONING_EYEBROW_Y_IN, SLIDE_W_IN - 1.0, "POSITIONING STATEMENT",
+        size=14, bold=True, color="8A8781", h_in=0.4,
+    )
+
+    card = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(POSITIONING_CARD_MARGIN_IN), Inches(POSITIONING_CARD_TOP_IN),
+        Inches(SLIDE_W_IN - 2 * POSITIONING_CARD_MARGIN_IN), Inches(POSITIONING_CARD_H_IN),
+    )
+    card.adjustments[0] = 0.04
+    _set_fill(card, "FFFFFF")
+    card.line.color.rgb = RGBColor.from_string("E4E1D8")
+    card.line.width = Pt(1)
+    card.line.fill.solid()
+    card.line.fill.fore_color.rgb = RGBColor.from_string("E4E1D8")
+    card.shadow.inherit = False
+
+    inner_margin = 0.7
+    text_box = slide.shapes.add_textbox(
+        Inches(POSITIONING_CARD_MARGIN_IN + inner_margin), Inches(POSITIONING_CARD_TOP_IN + 0.4),
+        Inches(SLIDE_W_IN - 2 * (POSITIONING_CARD_MARGIN_IN + inner_margin)), Inches(POSITIONING_CARD_H_IN - 0.8),
+    )
+    tf = text_box.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = 0
+    tf.margin_right = 0
+    tf.margin_top = 0
+    tf.margin_bottom = 0
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+
+    ink = "2A2E29"
+    plain_size = Pt(20)
+    bold_size = Pt(22)
+    segments = [
+        ("For ", False, ink),
+        (data.target_customer, True, POSITIONING_RUN_COLORS[0]),
+        (" who ", False, ink),
+        (data.need, True, POSITIONING_RUN_COLORS[1]),
+        (", ", False, ink),
+        (data.product_name, True, POSITIONING_RUN_COLORS[3]),
+        (" is a ", False, ink),
+        (data.category, True, POSITIONING_RUN_COLORS[0]),
+        (" that ", False, ink),
+        (data.key_benefit, True, POSITIONING_RUN_COLORS[1]),
+        (". Unlike ", False, ink),
+        (data.primary_alternative, True, POSITIONING_RUN_COLORS[2]),
+        (", we ", False, ink),
+        (data.differentiator, True, POSITIONING_RUN_COLORS[3]),
+        (".", False, ink),
+    ]
+    for text, bold, color in segments:
+        run = p.add_run()
+        run.text = text
+        run.font.size = bold_size if bold else plain_size
+        run.font.bold = bold
+        run.font.color.rgb = RGBColor.from_string(color)
+        run.font.name = "Arial"
+
+    bottom_bar = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, 0, Inches(SLIDE_H_IN - POSITIONING_BOTTOM_BAR_H_IN),
+        prs.slide_width, Inches(POSITIONING_BOTTOM_BAR_H_IN),
+    )
+    _set_fill(bottom_bar, BRAND_COLORS[0])
+    bottom_bar.shadow.inherit = False
+
+
+def build_positioning_statement_pptx(data: PositioningStatementSlide) -> bytes:
+    prs = _new_presentation()
+    add_positioning_statement_slide(prs, data)
+    return _save_bytes(prs)
+
+
+def add_raci_chart_slide(prs: Presentation, data: RaciChartSlide) -> None:
+    """Who owns what: a task column plus 4 fixed RACI role columns, each
+    cell holding a name/role rather than a matrix of R/A/C/I letters --
+    reads directly as "who do I talk to" without a legend.
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_background(slide, prs)
+
+    _add_label(
+        slide, SLIDE_W_IN / 2, RACI_TITLE_Y_IN, SLIDE_W_IN - 1.0, data.title.upper(),
+        size=26, bold=True, color="1B1F1C", h_in=0.7,
+    )
+
+    col_x = [RACI_TABLE_LEFT_IN + RACI_TASK_COL_W_IN + i * RACI_ROLE_COL_W_IN for i in range(5)]
+
+    # Header row: plain task-column label, then 4 colored role cells.
+    _add_label(
+        slide, RACI_TABLE_LEFT_IN + RACI_TASK_COL_W_IN / 2, RACI_TABLE_TOP_IN + RACI_HEADER_H_IN / 2,
+        RACI_TASK_COL_W_IN - 0.2, "INITIATIVE",
+        size=13, bold=True, color="5B5A52", align=PP_ALIGN.LEFT, h_in=RACI_HEADER_H_IN - 0.1,
+    )
+    for i, (letter, word) in enumerate(RACI_ROLE_LABELS):
+        color = RACI_ROLE_COLORS[i]
+        cell = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE, Inches(col_x[i] + 0.05), Inches(RACI_TABLE_TOP_IN),
+            Inches(RACI_ROLE_COL_W_IN - 0.1), Inches(RACI_HEADER_H_IN),
+        )
+        cell.adjustments[0] = 0.12
+        _set_fill(cell, color)
+        cell.shadow.inherit = False
+        _add_label(
+            slide, col_x[i] + RACI_ROLE_COL_W_IN / 2, RACI_TABLE_TOP_IN + 0.27, RACI_ROLE_COL_W_IN - 0.2, letter,
+            size=18, bold=True, color="FFFFFF", h_in=0.32,
+        )
+        _add_label(
+            slide, col_x[i] + RACI_ROLE_COL_W_IN / 2, RACI_TABLE_TOP_IN + 0.58, RACI_ROLE_COL_W_IN - 0.1, word,
+            size=9, bold=False, color="FFFFFF", h_in=0.24,
+        )
+
+    rows = data.rows[:RACI_MAX_ROWS]
+    body_top = RACI_TABLE_TOP_IN + RACI_HEADER_H_IN + 0.1
+
+    for r, row in enumerate(rows):
+        row_y = body_top + r * RACI_ROW_H_IN
+        if r % 2 == 0:
+            stripe = slide.shapes.add_shape(
+                MSO_SHAPE.RECTANGLE, Inches(RACI_TABLE_LEFT_IN), Inches(row_y), Inches(RACI_TABLE_W_IN), Inches(RACI_ROW_H_IN - 0.06),
+            )
+            _set_fill(stripe, "F5F4F0")
+            stripe.shadow.inherit = False
+
+        _add_label(
+            slide, RACI_TABLE_LEFT_IN + RACI_TASK_COL_W_IN / 2, row_y + (RACI_ROW_H_IN - 0.06) / 2,
+            RACI_TASK_COL_W_IN - 0.3, row.task,
+            size=13, bold=True, color="1F2622", align=PP_ALIGN.LEFT, h_in=RACI_ROW_H_IN - 0.16,
+        )
+        for i, value in enumerate([row.responsible, row.accountable, row.consulted, row.informed]):
+            _add_label(
+                slide, col_x[i] + RACI_ROLE_COL_W_IN / 2, row_y + (RACI_ROW_H_IN - 0.06) / 2,
+                RACI_ROLE_COL_W_IN - 0.15, value,
+                size=11.5, bold=False, color="2A2E29", h_in=RACI_ROW_H_IN - 0.16,
+            )
+
+    table_bottom = body_top + len(rows) * RACI_ROW_H_IN
+    for i in range(5):
+        divider_x = RACI_TABLE_LEFT_IN + RACI_TASK_COL_W_IN + i * RACI_ROLE_COL_W_IN
+        divider = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, Inches(divider_x), Inches(body_top), Pt(1), Inches(table_bottom - body_top),
+        )
+        _set_fill(divider, "E4E1D8")
+        divider.shadow.inherit = False
+
+
+def build_raci_chart_pptx(data: RaciChartSlide) -> bytes:
+    prs = _new_presentation()
+    add_raci_chart_slide(prs, data)
+    return _save_bytes(prs)
+
+
 _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], None]] = {
     "radial_wheel": add_wheel_slide,
     "comparison_columns": add_comparison_slide,
@@ -1333,6 +1670,9 @@ _DECK_SLIDE_BUILDERS: dict[str, Callable[[Presentation, InfographicDiagram], Non
     "hub_spoke": add_hub_spoke_slide,
     "title_intro": add_title_slide,
     "agenda": add_agenda_slide,
+    "value_proposition": add_value_proposition_slide,
+    "positioning_statement": add_positioning_statement_slide,
+    "raci_chart": add_raci_chart_slide,
 }
 
 

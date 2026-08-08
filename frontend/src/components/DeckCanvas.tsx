@@ -11,6 +11,7 @@ interface DeckCanvasProps {
 function slideTitle(diagram: InfographicDiagram): string {
   if (diagram.template === 'vision_pyramid') return diagram.vision || 'Vision'
   if (diagram.template === 'feature_story') return diagram.headline || 'Feature Story'
+  if (diagram.template === 'positioning_statement') return diagram.product_name || 'Positioning Statement'
   return diagram.title || 'Untitled'
 }
 

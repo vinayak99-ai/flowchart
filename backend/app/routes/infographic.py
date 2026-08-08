@@ -16,6 +16,8 @@ from app.infographic_models import (
     MATRIX_QUADRANT_COUNT,
     PYRAMID_MAX_PILLARS,
     PYRAMID_MIN_PILLARS,
+    RACI_MAX_ROWS,
+    RACI_MIN_ROWS,
     TIMELINE_MAX_MILESTONES,
     TIMELINE_MIN_MILESTONES,
     TITLE_HIGHLIGHT_MAX,
@@ -32,6 +34,7 @@ from app.infographic_models import (
     InfographicRoadmap,
     InfographicTimeline,
     InfographicWheel,
+    RaciChartSlide,
     TitleSlide,
     WHEEL_ITEM_COUNT,
 )
@@ -42,11 +45,14 @@ from app.infographic_template import (
     build_deck_pptx,
     build_hub_spoke_pptx,
     build_matrix_pptx,
+    build_positioning_statement_pptx,
     build_pyramid_pptx,
+    build_raci_chart_pptx,
     build_roadmap_pptx,
     build_story_pptx,
     build_timeline_pptx,
     build_title_pptx,
+    build_value_proposition_pptx,
     build_wheel_pptx,
 )
 from app.models import GenerateRequest, ValidationIssue, ValidationSeverity
@@ -65,6 +71,9 @@ _EXPORT_BUILDERS = {
     "hub_spoke": (build_hub_spoke_pptx, "infographic-hub-spoke.pptx"),
     "title_intro": (build_title_pptx, "infographic-title.pptx"),
     "agenda": (build_agenda_pptx, "infographic-agenda.pptx"),
+    "value_proposition": (build_value_proposition_pptx, "infographic-value-proposition.pptx"),
+    "positioning_statement": (build_positioning_statement_pptx, "infographic-positioning.pptx"),
+    "raci_chart": (build_raci_chart_pptx, "infographic-raci.pptx"),
 }
 
 
@@ -175,6 +184,17 @@ def _validate_infographic(data: InfographicDiagram) -> list[ValidationIssue]:
                     severity=ValidationSeverity.warning,
                     code="empty_agenda",
                     message="Agenda has no items.",
+                )
+            ]
+        return []
+
+    if isinstance(data, RaciChartSlide):
+        if not (RACI_MIN_ROWS <= len(data.rows) <= RACI_MAX_ROWS):
+            return [
+                ValidationIssue(
+                    severity=ValidationSeverity.warning,
+                    code="wrong_row_count",
+                    message=f"RACI chart has {len(data.rows)} rows; the template supports {RACI_MIN_ROWS}-{RACI_MAX_ROWS}.",
                 )
             ]
         return []
