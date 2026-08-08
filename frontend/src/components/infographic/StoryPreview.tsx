@@ -1,13 +1,14 @@
 import type { FeatureStory, StoryAct } from '../../infographicTypes'
 import { EditableText } from './EditableText'
 
-// Warm (friction) -> neutral (build) -> cool-positive (result), matching
-// the backend PPTX -- the color progression reinforces the arc even before
-// the text is read.
+// Muted bronze (friction) -> brand green (the product, building the fix) ->
+// gold (the payoff), matching the backend PPTX -- the color progression
+// reinforces the arc even before the text is read, while staying inside
+// the brand's green/gold family.
 const STORY_COLORS: Record<'problem' | 'solution' | 'impact', string> = {
-  problem: '#c9457a',
-  solution: '#3d5a80',
-  impact: '#6b9b52',
+  problem: '#8a5a0a',
+  solution: '#00754a',
+  impact: '#c9a227',
 }
 
 interface StoryPreviewProps {

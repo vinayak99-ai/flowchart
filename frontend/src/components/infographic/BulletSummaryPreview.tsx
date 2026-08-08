@@ -5,7 +5,7 @@ import { EditableText } from './EditableText'
 // content that doesn't fit any of the shaped templates. Dot-bullet rows
 // match the visual style already used for list rows elsewhere (comparison
 // points, roadmap items) rather than reaching for native <ul> markers.
-const BULLET_ACCENT_COLOR = '#3d5a80'
+const BULLET_ACCENT_COLOR = '#00754a'
 
 interface BulletSummaryPreviewProps {
   slide: BulletSummarySlide

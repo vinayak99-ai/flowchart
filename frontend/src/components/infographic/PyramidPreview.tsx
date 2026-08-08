@@ -5,7 +5,7 @@ import { EditableText } from './EditableText'
 // expressed as CSS clip-path polygons instead of literal shape corners --
 // the pyramid silhouette without any autoshape-adjustment math on either side.
 const APEX_FRACTION = 1.8 / 8.5
-const PILLAR_COLORS = ['#3d5a80', '#6b9b52', '#c9457a', '#e8a33d']
+const PILLAR_COLORS = ['#00754a', '#c9a227', '#14b0a0', '#8a5a0a']
 
 function widthFraction(j: number, totalBands: number): number {
   return APEX_FRACTION + (1 - APEX_FRACTION) * (j / totalBands)
@@ -54,7 +54,7 @@ export function PyramidPreview({ pyramid, onChange }: PyramidPreviewProps) {
                 className="absolute inset-0"
                 style={{
                   clipPath,
-                  backgroundColor: isVision ? '#1b1f1c' : PILLAR_COLORS[(i - 1) % PILLAR_COLORS.length],
+                  backgroundColor: isVision ? '#1f2622' : PILLAR_COLORS[(i - 1) % PILLAR_COLORS.length],
                 }}
               />
               <div className="relative flex h-full flex-col items-center justify-center px-4 text-center">

@@ -5,7 +5,7 @@ import { EditableText } from './EditableText'
 // flex/CSS rather than a fixed-geometry SVG like WheelPreview -- text
 // naturally reflows instead of needing per-box height math to avoid
 // clipping, and the column count doesn't need separate SVG layouts.
-const COLUMN_COLORS = ['#3d5a80', '#6b9b52', '#c9457a', '#e8a33d']
+const COLUMN_COLORS = ['#00754a', '#c9a227', '#14b0a0', '#8a5a0a']
 
 interface ComparisonPreviewProps {
   comparison: InfographicComparison

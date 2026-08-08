@@ -1,8 +1,8 @@
 import type { InfographicWheel, WheelItem } from '../../infographicTypes'
 import { EditableText } from './EditableText'
 
-const WEDGE_COLORS = ['#e8a33d', '#6b9b52', '#3d5a80', '#c9457a', '#2a9d8f']
-const LIST_ACCENT_COLORS = ['#c98626', '#537b3d', '#2c4160', '#a3305f', '#1e7c70']
+const WEDGE_COLORS = ['#00754a', '#c9a227', '#14b0a0', '#8a5a0a', '#4a9020']
+const LIST_ACCENT_COLORS = ['#005f3c', '#a4841f', '#109083', '#714908', '#3c761a']
 
 // Same geometry verified against the actual .pptx export: 5 wedges of 36
 // degrees each, spanning -90 to +90 around a hub at (180, 300).
@@ -58,7 +58,7 @@ export function WheelPreview({ wheel, onChange }: WheelPreviewProps) {
           value={wheel.title}
           onCommit={updateTitle}
           as="div"
-          className="flex h-full w-full items-center justify-center break-words text-center text-[19px] font-extrabold uppercase leading-tight text-[#1b1f1c]"
+          className="flex h-full w-full items-center justify-center break-words text-center text-[19px] font-extrabold uppercase leading-tight text-[#1f2622]"
         />
       </foreignObject>
 

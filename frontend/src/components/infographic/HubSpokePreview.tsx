@@ -1,7 +1,7 @@
 import type { InfographicHubSpoke, HubSpokeItem } from '../../infographicTypes'
 import { EditableText } from './EditableText'
 
-const HUB_SPOKE_COLORS = ['#e8a33d', '#6b9b52', '#3d5a80', '#c9457a', '#2a9d8f', '#8859a3']
+const HUB_SPOKE_COLORS = ['#00754a', '#c9a227', '#14b0a0', '#8a5a0a', '#4a9020', '#5cc4a8']
 
 const CX = 450
 const CY = 250

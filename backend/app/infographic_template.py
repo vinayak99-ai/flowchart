@@ -38,10 +38,18 @@ from app.infographic_models import (
     WheelItem,
 )
 
-# Wedge colors, matching the artifact gallery's radial-wheel mockup.
-WEDGE_COLORS = ["E8A33D", "6B9B52", "3D5A80", "C9457A", "2A9D8F"]
-LIST_ACCENT_COLORS = ["C98626", "537B3D", "2C4160", "A3305F", "1E7C70"]
-COLUMN_COLORS = ["3D5A80", "6B9B52", "C9457A", "E8A33D"]
+# Brand palette (matches frontend/src/lib/themes.ts's fidelity-green theme):
+# primary green + gold accent lead every set, extended with validated
+# green/gold-family hues (dataviz skill's six-check categorical validator,
+# adjacent-pairs mode -- the correct test here since these are always
+# consumed as a sequential wedge/list/column index, never freely paired,
+# and every segment carries its own text label regardless).
+BRAND_COLORS = ["00754A", "C9A227", "14B0A0", "8A5A0A", "4A9020", "5CC4A8"]
+BRAND_COLORS_DARK = ["005F3C", "A4841F", "109083", "714908", "3C761A", "4BA089"]
+
+WEDGE_COLORS = BRAND_COLORS[:5]
+LIST_ACCENT_COLORS = BRAND_COLORS_DARK[:5]
+COLUMN_COLORS = BRAND_COLORS[:4]
 
 SLIDE_W_IN = 13.333
 SLIDE_H_IN = 7.5
@@ -70,9 +78,11 @@ ROADMAP_COL_TOP_IN = 1.6
 ROADMAP_MARGIN_IN = 0.9
 ROADMAP_COL_GAP_IN = 0.4
 ROADMAP_BAR_H_IN = 0.65
-# Same hue, fading light -- closer horizons read visually "stronger."
-ROADMAP_COLORS = ["1F3A5F", "3D5A80", "9DB6D1"]
-ROADMAP_TEXT_COLORS = ["FFFFFF", "FFFFFF", "1B1F1C"]
+# Same hue (brand primary green), fading light -- closer horizons read
+# visually "stronger." Validated as an ordinal ramp (dataviz skill:
+# monotone lightness, light end still clears 2:1 contrast).
+ROADMAP_COLORS = ["0A4A30", "00754A", "5CAE82"]
+ROADMAP_TEXT_COLORS = ["FFFFFF", "FFFFFF", "1F2622"]
 
 PYRAMID_HEADLINE_Y_IN = 1.0
 PYRAMID_HEADLINE_H_IN = 1.5
@@ -90,14 +100,14 @@ TIMELINE_RIGHT_IN = 12.2
 TIMELINE_CARD_W_IN = 1.95
 TIMELINE_CARD_H_IN = 1.7
 TIMELINE_CONNECTOR_H_IN = 0.35
-TIMELINE_COLORS = ["3D5A80", "6B9B52", "C9457A", "E8A33D", "2A9D8F", "8859A3"]
+TIMELINE_COLORS = BRAND_COLORS
 
 BULLET_TITLE_Y_IN = 0.6
 BULLET_LIST_TOP_IN = 1.7
 BULLET_LIST_LEFT_IN = 1.5
 BULLET_LIST_WIDTH_IN = 10.3
 BULLET_ROW_H_IN = 0.85
-BULLET_ACCENT_COLOR = "3D5A80"
+BULLET_ACCENT_COLOR = "00754A"
 
 MATRIX_TITLE_Y_IN = 0.5
 MATRIX_GRID_TOP_IN = 1.3
@@ -114,9 +124,10 @@ STORY_PANEL_H_IN = 4.3
 STORY_MARGIN_IN = 0.8
 STORY_GAP_IN = 0.5
 STORY_BAR_H_IN = 0.6
-# Warm (friction) -> neutral (build) -> cool-positive (result), reinforcing
-# the arc's tension even before the text is read.
-STORY_COLORS = {"problem": "C9457A", "solution": "3D5A80", "impact": "6B9B52"}
+# Muted bronze (friction) -> brand green (the product, building the fix) ->
+# gold (the payoff), reinforcing the arc's tension even before the text is
+# read, while staying inside the brand's green/gold family.
+STORY_COLORS = {"problem": "8A5A0A", "solution": "00754A", "impact": "C9A227"}
 
 HUB_SPOKE_CX_IN = SLIDE_W_IN / 2
 HUB_SPOKE_CY_IN = 3.9
@@ -130,8 +141,9 @@ HUB_SPOKE_CARD_ROW_GAP_IN = 0.35
 HUB_SPOKE_SPOKE_GAP_IN = 0.6
 HUB_SPOKE_CAP_W_IN = 1.1
 # 6 distinct hues -- the reference stock template this was adapted from
-# reused one color across 2 of its 6 segments, which we deliberately fix here.
-HUB_SPOKE_COLORS = ["E8A33D", "6B9B52", "3D5A80", "C9457A", "2A9D8F", "8859A3"]
+# reused one color across 2 of its 6 segments, which we deliberately fixed
+# here, now drawn from the validated brand palette (see BRAND_COLORS above).
+HUB_SPOKE_COLORS = BRAND_COLORS
 
 
 def _new_presentation() -> Presentation:
@@ -491,7 +503,7 @@ def add_pyramid_slide(prs: Presentation, data: InfographicPyramid) -> None:
             close=True,
         )
         band = fb.convert_to_shape()
-        color = "1B1F1C" if i == 0 else COLUMN_COLORS[(i - 1) % len(COLUMN_COLORS)]
+        color = "1F2622" if i == 0 else COLUMN_COLORS[(i - 1) % len(COLUMN_COLORS)]
         _set_fill(band, color)
         band.shadow.inherit = False
 

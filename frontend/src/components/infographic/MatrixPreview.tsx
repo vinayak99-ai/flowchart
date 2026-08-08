@@ -4,7 +4,7 @@ import { EditableText } from './EditableText'
 // Flexible enough for both a prioritization matrix (continuous axes like
 // Impact/Effort) and a SWOT analysis (categorical axes) -- same layout,
 // only the axis labels and quadrant content differ.
-const QUADRANT_COLORS = ['#3d5a80', '#6b9b52', '#c9457a', '#e8a33d']
+const QUADRANT_COLORS = ['#00754a', '#c9a227', '#14b0a0', '#8a5a0a']
 
 interface MatrixPreviewProps {
   matrix: InfographicMatrix

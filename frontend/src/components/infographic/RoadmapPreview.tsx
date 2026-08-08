@@ -1,10 +1,10 @@
 import type { InfographicRoadmap } from '../../infographicTypes'
 import { EditableText } from './EditableText'
 
-// Same hue, fading light, matching the backend PPTX: closer horizons read
-// visually "stronger" than farther-out ones.
-const ROADMAP_COLORS = ['#1f3a5f', '#3d5a80', '#9db6d1']
-const ROADMAP_TEXT_COLORS = ['#ffffff', '#ffffff', '#1b1f1c']
+// Same hue (brand primary green), fading light, matching the backend PPTX:
+// closer horizons read visually "stronger" than farther-out ones.
+const ROADMAP_COLORS = ['#0a4a30', '#00754a', '#5cae82']
+const ROADMAP_TEXT_COLORS = ['#ffffff', '#ffffff', '#1f2622']
 const ROADMAP_DEFAULT_HEADINGS = ['Now', 'Next', 'Later']
 
 interface RoadmapPreviewProps {
