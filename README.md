@@ -30,6 +30,11 @@ cp .env.example .env              # fill in the keys below
 uvicorn app.main:app --reload --port 8000
 ```
 
+Supports Python 3.9 through 3.13. On 3.9, Pydantic models rely on `from __future__
+import annotations` plus the `eval_type_backport` dependency to resolve modern
+`X | None`-style type hints, which aren't natively supported until 3.10 — both are
+already wired up, no extra setup needed.
+
 ```bash
 # Frontend — one Vite dev server for every tool, in a second terminal
 cd frontend

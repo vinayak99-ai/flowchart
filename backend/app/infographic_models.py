@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -258,20 +258,22 @@ class RaciChartSlide(BaseModel):
 # body) can be any of these shapes without the caller needing to know which
 # one up front -- the classify step is what picks it.
 InfographicDiagram = Annotated[
-    InfographicWheel
-    | InfographicComparison
-    | InfographicRoadmap
-    | InfographicPyramid
-    | InfographicTimeline
-    | BulletSummarySlide
-    | InfographicMatrix
-    | FeatureStory
-    | InfographicHubSpoke
-    | TitleSlide
-    | AgendaSlide
-    | ValuePropositionSlide
-    | PositioningStatementSlide
-    | RaciChartSlide,
+    Union[
+        InfographicWheel,
+        InfographicComparison,
+        InfographicRoadmap,
+        InfographicPyramid,
+        InfographicTimeline,
+        BulletSummarySlide,
+        InfographicMatrix,
+        FeatureStory,
+        InfographicHubSpoke,
+        TitleSlide,
+        AgendaSlide,
+        ValuePropositionSlide,
+        PositioningStatementSlide,
+        RaciChartSlide,
+    ],
     Field(discriminator="template"),
 ]
 
