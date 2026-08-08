@@ -10,6 +10,8 @@ import { SequenceCanvas, type SequenceCanvasHandle } from './components/Sequence
 import { InfographicSidebar, type InfographicMode } from './components/InfographicSidebar'
 import { InfographicCanvas } from './components/InfographicCanvas'
 import { DeckCanvas } from './components/DeckCanvas'
+import { StorySidebar } from './components/StorySidebar'
+import { StoryCanvas } from './components/StoryCanvas'
 import { ExportControls } from './components/ExportControls'
 import { SequenceExportControls } from './components/SequenceExportControls'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -20,6 +22,7 @@ import { TOOLS, type ToolId } from './lib/tools'
 import type { GenerateResponse } from './types'
 import type { GenerateSequenceResponse } from './sequenceTypes'
 import type { GenerateDeckResponse, GenerateInfographicResponse } from './infographicTypes'
+import type { StoryScript } from './storyTypes'
 
 function App() {
   const [activeTool, setActiveTool] = useState<ToolId>('flowchart')
@@ -28,6 +31,7 @@ function App() {
   const [infographicMode, setInfographicMode] = useState<InfographicMode>('single')
   const [infographicResult, setInfographicResult] = useState<GenerateInfographicResponse | null>(null)
   const [deckResult, setDeckResult] = useState<GenerateDeckResponse | null>(null)
+  const [storyResult, setStoryResult] = useState<StoryScript | null>(null)
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('layered')
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('DOWN')
   const [edgeShape, setEdgeShape] = useState<EdgeShape>('bezier')
@@ -148,6 +152,17 @@ function App() {
             embedded app and lose in-progress (not-yet-autosaved) edits. */}
         <div className={`min-h-0 flex-1 ${activeTool === 'spec' ? 'flex' : 'hidden'}`}>
           <SpecBuilderPanel />
+        </div>
+
+        {/* Reads an existing Spec Builder project's PRD as source material
+            (see backend/app/routes/story.py) rather than taking pasted/
+            uploaded material like the other generation tools -- the whole
+            point is reusing work already done in Spec Builder. */}
+        <div className={`min-h-0 flex-1 ${activeTool === 'story' ? 'flex' : 'hidden'}`}>
+          <StorySidebar onResult={setStoryResult} />
+          <main className="flex min-w-0 flex-1 flex-col">
+            <StoryCanvas story={storyResult} onStoryChange={setStoryResult} />
+          </main>
         </div>
 
         {comingSoonTool ? <ComingSoonPanel tool={comingSoonTool} /> : null}

@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.routes.generate import router as generate_router
 from app.routes.sequence import router as sequence_router
 from app.routes.infographic import router as infographic_router
+from app.routes.story import router as story_router
 from app.spec_builder.main import app as spec_builder_app
 
 settings = get_settings()
@@ -22,6 +23,7 @@ app.add_middleware(
 app.include_router(generate_router)
 app.include_router(sequence_router)
 app.include_router(infographic_router)
+app.include_router(story_router)
 
 # Spec Builder's own FastAPI app, routed at /pm/* -- e.g. /pm/projects. It
 # keeps its own CORS middleware (app/spec_builder/main.py), which already
