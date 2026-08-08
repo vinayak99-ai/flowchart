@@ -5,19 +5,21 @@ import os
 
 from dotenv import load_dotenv
 
-# Load ANTHROPIC_API_KEY / OPENAI_API_KEY / AIPM_MODEL (and any other vars)
+# Load OPENAI_API_KEY / LLM_PROVIDER / CORPORATE_LLM_* (and any other vars)
 # from backend/.env -- the same file Product Studio's own app/config.py reads --
-# before the agents module constructs its Agent objects, which read the key
-# + model at import time. override=True so .env is authoritative -- otherwise
-# python-dotenv's default (override=False) means a stale OS/user-level env
-# var of the same name silently wins over whatever is actually written there.
+# before app.llm_client constructs its provider, which reads these at
+# call time via app.config.get_settings(). override=True so .env is
+# authoritative -- otherwise python-dotenv's default (override=False) means
+# a stale OS/user-level env var of the same name silently wins over
+# whatever is actually written there.
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env", override=True)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAIError
 from pydantic import BaseModel
-from pydantic_ai.exceptions import AgentRunError, ModelHTTPError
 
+from app.llm_client import generate_structured_sync
 from . import jira_client
 from .persistence import (
     create_project, list_projects, get_project, rename_project, delete_project,
@@ -30,7 +32,7 @@ from .persistence import (
     ProjectMeta, Stakeholder, GlossaryTerm, SpecInput
 )
 from .agents import (
-    agent, generation_agent, run_clarify, run_generation, run_diagram,
+    run_extraction, GENERATION_SYSTEM_PROMPT, run_clarify, run_generation, run_diagram,
     run_architecture, run_epics, run_jira_import, run_brief, run_update_composer,
     ExtractedRequirements, ClarifyQuestion, AnsweredClarification, GeneratedPRD,
     ComposedUpdate,
@@ -129,11 +131,10 @@ class ComposeUpdateRequest(BaseModel):
     audience: Literal["all", "executive", "engineering", "sales"] = "all"
 
 def _agent_error_detail(exc: Exception) -> str:
-    if isinstance(exc, ModelHTTPError):
-        return f"Model API error ({exc.status_code}): {exc.body}"
-    if isinstance(exc, AgentRunError):
-        return f"Agent call failed ({type(exc).__name__}): {exc}"
-    return f"Agent call failed: {exc}"
+    status_code = getattr(exc, "status_code", None)
+    if status_code is not None:
+        return f"LLM provider error ({status_code}): {exc}"
+    return f"LLM provider error: {exc}"
 
 # Current pipeline stage per project, so the UI can show live progress while
 # its (synchronous) generate/clarify request is in flight. In-memory is fine
@@ -263,11 +264,10 @@ def _start_generation(
     try:
         _set_stage(project_id, "extracting")
         try:
-            extraction_result = agent.run_sync(raw_notes)
-            extracted = extraction_result.output
+            extracted = run_extraction(raw_notes)
             _set_stage(project_id, "clarifying")
             clarify_result = run_clarify(extracted)
-        except AgentRunError as e:
+        except OpenAIError as e:
             raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
         round_questions = clarify_result.questions[:ROUND_SIZE]
@@ -282,7 +282,7 @@ def _start_generation(
                 extracted, on_stage=lambda s: _set_stage(project_id, s),
                 glossary=load_glossary(project_id),
             )
-        except AgentRunError as e:
+        except OpenAIError as e:
             raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
         artifact_id = save_artifact(project_id, prd, target_artifact_id, reason=reason)
@@ -365,7 +365,7 @@ def api_clarify(project_id: str, req: ClarifyAnswersRequest):
             _set_stage(project_id, "clarifying")
             try:
                 clarify_result = run_clarify(pending.extracted, new_history)
-            except AgentRunError as e:
+            except OpenAIError as e:
                 raise HTTPException(status_code=502, detail=_agent_error_detail(e))
             remaining_budget = MAX_TOTAL_QUESTIONS - len(new_history)
             next_questions = clarify_result.questions[: min(ROUND_SIZE, remaining_budget)]
@@ -382,7 +382,7 @@ def api_clarify(project_id: str, req: ClarifyAnswersRequest):
                 pending.extracted, new_history, on_stage=lambda s: _set_stage(project_id, s),
                 glossary=load_glossary(project_id),
             )
-        except AgentRunError as e:
+        except OpenAIError as e:
             raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
         artifact_id = save_artifact(project_id, prd, pending.target_artifact_id, reason=pending.reason)
@@ -397,13 +397,14 @@ def api_regenerate_section(project_id: str, artifact_id: str, req: RegenerateSec
     prd = load_artifact(project_id, artifact_id)
 
     try:
-        result = generation_agent.run_sync(
+        updated_prd = generate_structured_sync(
+            GENERATION_SYSTEM_PROMPT,
             f"Regenerate ONLY the {req.section} section. "
             f"Current PRD context: {req.context}. "
-            f"Return the full PRD structure but only change {req.section}."
+            f"Return the full PRD structure but only change {req.section}.",
+            GeneratedPRD,
         )
-        updated_prd = result.output
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
     save_artifact(project_id, updated_prd, artifact_id, reason="section regenerated")
@@ -415,7 +416,7 @@ def api_generate_diagram(project_id: str, artifact_id: str, req: DiagramRequest)
 
     try:
         diagram = run_diagram(prd, req.diagram_type)
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
     prd.diagrams = [d for d in prd.diagrams if d.diagram_type != req.diagram_type] + [diagram]
@@ -445,7 +446,7 @@ def api_generate_architecture_decisions(project_id: str, artifact_id: str):
 
     try:
         prd.architecture_decisions = run_architecture(prd, prd.technical_context, load_glossary(project_id))
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
     save_artifact(project_id, prd, artifact_id, reason="architecture decisions regenerated")
@@ -457,7 +458,7 @@ def api_generate_epics(project_id: str, artifact_id: str):
 
     try:
         prd.epics = run_epics(prd)
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
     save_artifact(project_id, prd, artifact_id, reason="epics regenerated")
@@ -535,7 +536,7 @@ def api_jira_import(project_id: str, artifact_id: str):
 
     try:
         prd.epics, unmapped_requirements = run_jira_import(prd)
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
     except Exception as e:
         # jira_client can raise JIRAError / network errors -- surface a
@@ -596,7 +597,7 @@ def api_generate_brief(project_id: str, artifact_id: str, req: BriefRequest):
 
     try:
         brief = run_brief(prd, req.audience, stakeholders, load_glossary(project_id))
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
     brief.audience = req.audience  # requested audience is authoritative, not the model's echo
@@ -683,7 +684,7 @@ def api_compose_update(project_id: str, artifact_id: str, req: ComposeUpdateRequ
         draft = run_update_composer(
             prd, diff_lines, stakeholders, req.audience, period_desc, load_glossary(project_id)
         )
-    except AgentRunError as e:
+    except OpenAIError as e:
         raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
     from datetime import datetime, timezone

@@ -1,9 +1,7 @@
 import asyncio
 from typing import Awaitable, Callable
 
-from openai import AsyncOpenAI
-
-from app.config import get_settings
+from app.llm_client import generate_structured
 from app.infographic_llm import TEMPLATE_CATALOG, generate_infographic
 from app.infographic_models import InfographicDiagram
 from app.story_models import (
@@ -62,26 +60,10 @@ differentiators that aren't implied by the material.
 
 
 async def plan_story(prd_text: str, total_minutes: int, prompt: str) -> StoryPlan:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"PRD:\n{prd_text}"
     if prompt:
         user_message += f"\n\nAdditional instructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": _story_plan_prompt(total_minutes)},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=StoryPlan,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed story plan.")
-    return parsed
+    return await generate_structured(_story_plan_prompt(total_minutes), user_message, StoryPlan)
 
 
 NARRATION_SYSTEM_PROMPT = """You are a presentation coach writing spoken narration for one beat \
@@ -104,9 +86,6 @@ its bullet points aloud.
 
 
 async def generate_beat_narration(prd_text: str, beat_plan: StoryBeatPlan, slide: InfographicDiagram) -> str:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     duration = beat_plan.end_minute - beat_plan.start_minute
     user_message = (
         f"PRD:\n{prd_text}\n\n"
@@ -115,19 +94,7 @@ async def generate_beat_narration(prd_text: str, beat_plan: StoryBeatPlan, slide
         f"Beat's topic brief: {beat_plan.topic}\n\n"
         f"Slide on screen during this beat (JSON):\n{slide.model_dump_json()}"
     )
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": NARRATION_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=NarrationOnly,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include parsed narration.")
+    parsed = await generate_structured(NARRATION_SYSTEM_PROMPT, user_message, NarrationOnly)
     return parsed.narration
 
 

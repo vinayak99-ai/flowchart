@@ -1,8 +1,7 @@
-from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from app.archetypes import ARCHETYPES, ArchetypeId
-from app.config import get_settings
+from app.llm_client import generate_structured
 from app.models import FlowchartDiagram
 
 CLASSIFY_SYSTEM_PROMPT = """You are a flowchart architect. Given source material and a user \
@@ -46,32 +45,13 @@ class ArchetypeClassification(BaseModel):
 
 
 async def classify_archetype(material: str, prompt: str) -> ArchetypeClassification:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": CLASSIFY_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=ArchetypeClassification,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed classification.")
-    return parsed
+    return await generate_structured(CLASSIFY_SYSTEM_PROMPT, user_message, ArchetypeClassification)
 
 
 async def generate_diagram(
     material: str, prompt: str, archetype: ArchetypeId = ArchetypeId.custom
 ) -> FlowchartDiagram:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
 
     system_prompt = SYSTEM_PROMPT
@@ -79,16 +59,4 @@ async def generate_diagram(
     if shape_guidance:
         system_prompt = f"{SYSTEM_PROMPT}\nShape guidance:\n- {shape_guidance}\n"
 
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=FlowchartDiagram,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed diagram.")
-    return parsed
+    return await generate_structured(system_prompt, user_message, FlowchartDiagram)

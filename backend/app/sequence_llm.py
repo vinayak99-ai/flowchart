@@ -1,6 +1,4 @@
-from openai import AsyncOpenAI
-
-from app.config import get_settings
+from app.llm_client import generate_structured
 from app.sequence_models import SequenceDiagram
 
 SEQUENCE_SYSTEM_PROMPT = """You are a sequence diagram architect. Given source material and a user \
@@ -22,21 +20,5 @@ response or reply to an earlier call.
 
 
 async def generate_sequence_diagram(material: str, prompt: str) -> SequenceDiagram:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": SEQUENCE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=SequenceDiagram,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed sequence diagram.")
-    return parsed
+    return await generate_structured(SEQUENCE_SYSTEM_PROMPT, user_message, SequenceDiagram)

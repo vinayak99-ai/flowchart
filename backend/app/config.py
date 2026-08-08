@@ -11,6 +11,14 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    # Which LLMProvider app/llm_client.py hands back to every call site in
+    # the backend -- "openai" (default) or "corporate" (see
+    # CorporateLLMProvider's docstring in app/llm_client.py before flipping
+    # this; it's an unimplemented stub until your endpoint details are filled in).
+    llm_provider: str = "openai"
+    corporate_llm_base_url: str = ""
+    corporate_llm_api_key: str = ""
+    corporate_llm_model: str = ""
     # Both localhost and 127.0.0.1 -- browsers treat them as different
     # origins for CORS, and this middleware wraps the whole app, including
     # the /pm mount (app/spec_builder/main.py), so it has to cover whichever

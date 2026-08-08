@@ -1,9 +1,5 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-# Was pinned to 2.9.2; loosened so pydantic-ai (used by the mounted Spec
-# Builder backend, app/pm_portal_app.py) can pull in whatever pydantic it
-# actually needs — both apps' code only relies on stable, common 2.x
-# BaseModel/Field behavior, not anything specific to 2.9.2.
 pydantic>=2.9.2
 pydantic-settings==2.5.2
 openai==1.109.1
@@ -14,6 +10,7 @@ python-docx==1.1.2
 python-pptx==1.0.2
 websockets==13.1
 python-dotenv==1.0.1
-# Spec Builder (pm-portal/) dependencies — mounted into this same process.
-pydantic-ai
+# Spec Builder (pm-portal/) dependency — mounted into this same process.
+# Its LLM calls go through app/llm_client.py like the rest of the backend,
+# not through this package.
 jira

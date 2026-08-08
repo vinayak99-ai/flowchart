@@ -1,18 +1,10 @@
-import os
 import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent
 
+from app.llm_client import generate_structured_sync
 from .persistence import GlossaryTerm
-
-# ---------- Model / provider config ----------
-# pydantic-ai dispatches on the "<provider>:<model>" prefix and reads the
-# matching *_API_KEY env var automatically (ANTHROPIC_API_KEY, OPENAI_API_KEY,
-# ...). Set AIPM_MODEL in config/.env to switch providers, e.g.:
-#   AIPM_MODEL=openai:gpt-5
-MODEL = os.environ.get("AIPM_MODEL", "anthropic:claude-sonnet-5")
 
 # ---------- Stage 1: Extraction ----------
 
@@ -22,15 +14,14 @@ class ExtractedRequirements(BaseModel):
     target_users: list[str]
     open_questions: list[str]
 
-agent = Agent(
-    MODEL,
-    output_type=ExtractedRequirements,
-    system_prompt=(
-        "You extract structured product requirements from raw notes. "
-        "Only include information present in the notes. "
-        "Flag anything ambiguous as an open question rather than guessing."
-    ),
+EXTRACT_SYSTEM_PROMPT = (
+    "You extract structured product requirements from raw notes. "
+    "Only include information present in the notes. "
+    "Flag anything ambiguous as an open question rather than guessing."
 )
+
+def run_extraction(raw_notes: str) -> ExtractedRequirements:
+    return generate_structured_sync(EXTRACT_SYSTEM_PROMPT, raw_notes, ExtractedRequirements)
 
 # ---------- Stage 2: Clarify ----------
 # Modeled on GitHub Spec Kit's /speckit.clarify (structured, prioritized gap
@@ -83,10 +74,7 @@ class ClarifyResult(BaseModel):
         ),
     )
 
-clarify_agent = Agent(
-    MODEL,
-    output_type=ClarifyResult,
-    system_prompt=(
+CLARIFY_SYSTEM_PROMPT = (
         "You are conducting a short, conversational clarification round with a PM "
         "before a PRD gets drafted. Be conversational -- do not dump every possible "
         "question at once; ask the most important ones first and fill in gaps as you "
@@ -118,7 +106,6 @@ clarify_agent = Agent(
         "If the requirements are already clear enough to draft a solid PRD, return "
         "an empty list of questions -- do not ask questions just to have something "
         "to ask."
-    ),
 )
 
 def run_clarify(
@@ -140,8 +127,7 @@ def run_clarify(
     Already answered in this clarification round:
     {history_block}
     """
-    result = clarify_agent.run_sync(prompt)
-    return result.output
+    return generate_structured_sync(CLARIFY_SYSTEM_PROMPT, prompt, ClarifyResult)
 
 # ---------- Stage 3: Generation ----------
 # Schema modeled on GitHub Spec Kit's spec-template.md: prioritized,
@@ -310,33 +296,29 @@ class GeneratedPRD(BaseModel):
     briefs: list[StakeholderBrief] = Field(default_factory=list)
     updates: list[ComposedUpdate] = Field(default_factory=list)
 
-generation_agent = Agent(
-    MODEL,
-    output_type=GeneratedPRD,
-    system_prompt=(
-        "You are a senior PM writing a spec, following GitHub Spec Kit's spec.md "
-        "structure. Given extracted requirements and any clarifying Q&A:\n\n"
-        "- Write prioritized user stories (P1 = most critical) that are each "
-        "independently testable/shippable/demoable on their own. Give each a "
-        "short title, a plain-language description, a 'why this priority' "
-        "justification, an 'independent test' explaining how it can be verified "
-        "standalone, and Given/When/Then acceptance scenarios.\n"
-        "- List edge cases worth calling out.\n"
-        "- Write functional requirements as discrete, testable 'System MUST ...' "
-        "statements with sequential ids FR-001, FR-002, ... covering both "
-        "user-facing capabilities (kind='functional') and quality attributes -- "
-        "performance, security, scalability, reliability, availability, "
-        "compliance -- implied by the spec (kind='non_functional'). Classify "
-        "each with `kind`; don't invent non-functional requirements the spec "
-        "doesn't actually imply.\n"
-        "- List key entities (name + description, no implementation detail) only "
-        "if the feature involves data; leave empty otherwise.\n"
-        "- Write measurable, technology-agnostic success criteria with sequential "
-        "ids SC-001, SC-002, ...\n"
-        "- List assumptions made while drafting.\n\n"
-        "Treat the clarification answers as authoritative -- do not contradict "
-        "them. Do not invent requirements not implied by the input."
-    ),
+GENERATION_SYSTEM_PROMPT = (
+    "You are a senior PM writing a spec, following GitHub Spec Kit's spec.md "
+    "structure. Given extracted requirements and any clarifying Q&A:\n\n"
+    "- Write prioritized user stories (P1 = most critical) that are each "
+    "independently testable/shippable/demoable on their own. Give each a "
+    "short title, a plain-language description, a 'why this priority' "
+    "justification, an 'independent test' explaining how it can be verified "
+    "standalone, and Given/When/Then acceptance scenarios.\n"
+    "- List edge cases worth calling out.\n"
+    "- Write functional requirements as discrete, testable 'System MUST ...' "
+    "statements with sequential ids FR-001, FR-002, ... covering both "
+    "user-facing capabilities (kind='functional') and quality attributes -- "
+    "performance, security, scalability, reliability, availability, "
+    "compliance -- implied by the spec (kind='non_functional'). Classify "
+    "each with `kind`; don't invent non-functional requirements the spec "
+    "doesn't actually imply.\n"
+    "- List key entities (name + description, no implementation detail) only "
+    "if the feature involves data; leave empty otherwise.\n"
+    "- Write measurable, technology-agnostic success criteria with sequential "
+    "ids SC-001, SC-002, ...\n"
+    "- List assumptions made while drafting.\n\n"
+    "Treat the clarification answers as authoritative -- do not contradict "
+    "them. Do not invent requirements not implied by the input."
 )
 
 def run_generation(
@@ -357,38 +339,33 @@ def run_generation(
     Clarifications:
     {clarifications_block}
     """
-    result = generation_agent.run_sync(prompt)
-    return result.output
+    return generate_structured_sync(GENERATION_SYSTEM_PROMPT, prompt, GeneratedPRD)
 
 # ---------- Stage 4: Diagram ----------
 # Turns the drafted spec into a Mermaid diagram of the END USER'S experience of
 # the feature being specified -- not a diagram of this app. Rendered client-side
 # with the `mermaid` package and dropped straight into the Markdown export.
 
-diagram_agent = Agent(
-    MODEL,
-    output_type=Diagram,
-    system_prompt=(
-        "You turn a product spec into a Mermaid diagram depicting the END USER'S "
-        "experience of the feature being specified -- not the tool that generated "
-        "this spec. Given the requested diagram_type:\n\n"
-        "- 'journey': produce a Mermaid `journey` diagram. Start with `journey`, a "
-        "`title` line, group steps into 2-4 `section`s that mirror the feature's "
-        "real stages (derived from the user stories, ordered by priority), and "
-        "give each step a satisfaction score 1-5 and an actor name drawn from the "
-        "spec's user stories / key entities.\n"
-        "- 'sequence': produce a Mermaid `sequenceDiagram`. Start with "
-        "`sequenceDiagram`, declare a participant for each actor/system/key "
-        "entity actually involved (from the user stories, functional "
-        "requirements, and key entities), and lay out the key interactions as "
-        "chronological messages drawn from the acceptance scenarios' "
-        "Given/When/Then.\n\n"
-        "Output ONLY valid Mermaid source for that diagram type in "
-        "`mermaid_source` -- no markdown code fences, no commentary, nothing "
-        "from the other diagram type mixed in. Keep it readable: 6-12 "
-        "steps/messages, not an exhaustive enumeration of every requirement. "
-        "Give it a short, specific `title` field (not the spec title verbatim)."
-    ),
+DIAGRAM_SYSTEM_PROMPT = (
+    "You turn a product spec into a Mermaid diagram depicting the END USER'S "
+    "experience of the feature being specified -- not the tool that generated "
+    "this spec. Given the requested diagram_type:\n\n"
+    "- 'journey': produce a Mermaid `journey` diagram. Start with `journey`, a "
+    "`title` line, group steps into 2-4 `section`s that mirror the feature's "
+    "real stages (derived from the user stories, ordered by priority), and "
+    "give each step a satisfaction score 1-5 and an actor name drawn from the "
+    "spec's user stories / key entities.\n"
+    "- 'sequence': produce a Mermaid `sequenceDiagram`. Start with "
+    "`sequenceDiagram`, declare a participant for each actor/system/key "
+    "entity actually involved (from the user stories, functional "
+    "requirements, and key entities), and lay out the key interactions as "
+    "chronological messages drawn from the acceptance scenarios' "
+    "Given/When/Then.\n\n"
+    "Output ONLY valid Mermaid source for that diagram type in "
+    "`mermaid_source` -- no markdown code fences, no commentary, nothing "
+    "from the other diagram type mixed in. Keep it readable: 6-12 "
+    "steps/messages, not an exhaustive enumeration of every requirement. "
+    "Give it a short, specific `title` field (not the spec title verbatim)."
 )
 
 # ---------- Shared: PRD context formatting for on-demand agents ----------
@@ -428,8 +405,7 @@ def run_diagram(prd: GeneratedPRD, diagram_type: Literal["journey", "sequence"])
     Key entities:
     {entities_block}
     """
-    result = diagram_agent.run_sync(prompt)
-    return result.output
+    return generate_structured_sync(DIAGRAM_SYSTEM_PROMPT, prompt, Diagram)
 
 # ---------- Stage 5: Architecture Decisions ----------
 # Infers candidate architecture decisions (in ADR form) from the drafted spec
@@ -439,10 +415,7 @@ def run_diagram(prd: GeneratedPRD, diagram_type: Literal["journey", "sequence"])
 class ArchitectureDecisionSet(BaseModel):
     decisions: list[ArchitectureDecision] = Field(default_factory=list)
 
-architecture_agent = Agent(
-    MODEL,
-    output_type=ArchitectureDecisionSet,
-    system_prompt=(
+ARCHITECTURE_SYSTEM_PROMPT = (
         "You are a senior engineer proposing candidate architecture decisions for "
         "a drafted product spec, in Architecture Decision Record (ADR) form. Given "
         "the spec's user stories, functional requirements, and key entities, infer "
@@ -482,7 +455,6 @@ architecture_agent = Agent(
         "implied by the spec -- do not invent decisions unrelated to what the spec "
         "actually requires. If the spec is too thin to support any real decisions, "
         "return an empty list rather than inventing filler."
-    ),
 )
 
 def run_architecture(
@@ -524,8 +496,8 @@ def run_architecture(
     Project glossary:
     {_glossary_block(glossary)}
     """
-    result = architecture_agent.run_sync(prompt)
-    return result.output.decisions
+    result = generate_structured_sync(ARCHITECTURE_SYSTEM_PROMPT, prompt, ArchitectureDecisionSet)
+    return result.decisions
 
 # ---------- Stage 6: Epics ----------
 # Groups the spec's EXISTING user stories into Jira-style epics ("functional"
@@ -561,10 +533,7 @@ class EpicDraft(BaseModel):
 class EpicDraftSet(BaseModel):
     epics: list[EpicDraft] = Field(default_factory=list)
 
-epic_agent = Agent(
-    MODEL,
-    output_type=EpicDraftSet,
-    system_prompt=(
+EPIC_SYSTEM_PROMPT = (
         "You group a drafted product spec's user stories into Jira-style Epics, "
         "and add the technical/engineering stories each epic will also need.\n\n"
         "For each epic, write: a short title covering a cohesive slice of the "
@@ -602,7 +571,6 @@ epic_agent = Agent(
         "story must appear in some epic's functional_story_titles. Prefer fewer, "
         "more cohesive epics over one epic per story. Only add technical stories "
         "that are genuinely necessary engineering work, not busywork."
-    ),
 )
 
 def run_epics(prd: GeneratedPRD) -> list[Epic]:
@@ -630,12 +598,12 @@ def run_epics(prd: GeneratedPRD) -> list[Epic]:
     Success criteria (cite these in business_impact_rationale when relevant):
     {sc_block}
     """
-    result = epic_agent.run_sync(prompt)
+    result = generate_structured_sync(EPIC_SYSTEM_PROMPT, prompt, EpicDraftSet)
 
     story_by_title = {s.title: s for s in prd.user_stories}
     epics: list[Epic] = []
     story_counter = 0
-    for i, draft in enumerate(result.output.epics, start=1):
+    for i, draft in enumerate(result.epics, start=1):
         stories: list[EpicStory] = []
         for title in draft.functional_story_titles:
             story = story_by_title.get(title)
@@ -698,10 +666,7 @@ class EnrichmentResult(BaseModel):
         description="Functional requirement ids/text with no corresponding imported story",
     )
 
-enrichment_agent = Agent(
-    MODEL,
-    output_type=EnrichmentResult,
-    system_prompt=(
+ENRICHMENT_SYSTEM_PROMPT = (
         "You review stories imported from an existing Jira project against a "
         "drafted product spec, and enrich them.\n\n"
         "For each imported story (identified by its Jira key), produce:\n"
@@ -726,7 +691,6 @@ enrichment_agent = Agent(
         "story's existing title/description. When information is genuinely "
         "thin, say so in `notes` rather than inventing plausible-sounding "
         "detail."
-    ),
 )
 
 def run_enrichment(prd: GeneratedPRD, imported_stories: list[dict]) -> EnrichmentResult:
@@ -754,8 +718,7 @@ def run_enrichment(prd: GeneratedPRD, imported_stories: list[dict]) -> Enrichmen
     Imported Jira stories to review and enrich:
     {imported_block}
     """
-    result = enrichment_agent.run_sync(prompt)
-    return result.output
+    return generate_structured_sync(ENRICHMENT_SYSTEM_PROMPT, prompt, EnrichmentResult)
 
 def _next_epic_number(existing_epics: list[Epic]) -> int:
     max_n = 0
@@ -848,10 +811,7 @@ def run_jira_import(prd: GeneratedPRD) -> tuple[list[Epic], list[str]]:
 # projection of existing artifact content -- the agent must never invent
 # facts the spec doesn't contain.
 
-brief_agent = Agent(
-    MODEL,
-    output_type=StakeholderBrief,
-    system_prompt=(
+BRIEF_SYSTEM_PROMPT = (
         "You turn a drafted product spec into a brief for one specific audience. "
         "You will be told which audience; write ONLY for them.\n\n"
         "- 'executive': a one-pager. Sections for the outcome and why it matters "
@@ -878,7 +838,6 @@ brief_agent = Agent(
         "rather than fabricating it. Keep section bodies as plain prose "
         "paragraphs; use newline-separated '- ' bullets only where a list "
         "genuinely reads better."
-    ),
 )
 
 def _jira_status_suffix(jira_key: str | None, jira_status: str | None) -> str:
@@ -950,8 +909,7 @@ def run_brief(
     Project glossary (use these terms consistently):
     {_glossary_block(glossary)}
     """
-    result = brief_agent.run_sync(prompt)
-    return result.output
+    return generate_structured_sync(BRIEF_SYSTEM_PROMPT, prompt, StakeholderBrief)
 
 # ---------- Stage 9: Update Composer ----------
 # Drafts the recurring stakeholder update from what ACTUALLY changed between
@@ -967,10 +925,7 @@ class StakeholderUpdateDraft(BaseModel):
         description="Open decisions stakeholders need to make; empty if none are visible in the input",
     )
 
-update_composer_agent = Agent(
-    MODEL,
-    output_type=StakeholderUpdateDraft,
-    system_prompt=(
+UPDATE_COMPOSER_SYSTEM_PROMPT = (
         "You write a concise stakeholder status update for a product project, "
         "based STRICTLY on a structured change log between two versions of its "
         "spec.\n\n"
@@ -993,7 +948,6 @@ update_composer_agent = Agent(
         "context to explain what a changed item is, never to claim it "
         "changed. If a change is ambiguous, describe it plainly rather than "
         "spinning it."
-    ),
 )
 
 def run_update_composer(
@@ -1036,5 +990,4 @@ def run_update_composer(
     Project glossary (use these terms consistently):
     {_glossary_block(glossary)}
     """
-    result = update_composer_agent.run_sync(prompt)
-    return result.output
+    return generate_structured_sync(UPDATE_COMPOSER_SYSTEM_PROMPT, prompt, StakeholderUpdateDraft)

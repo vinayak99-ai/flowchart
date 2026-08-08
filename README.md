@@ -25,7 +25,7 @@ Registry lives in `frontend/src/lib/tools.ts`, rendered by `frontend/src/compone
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt   # includes Spec Builder's deps (pydantic-ai, jira)
+pip install -r requirements.txt   # includes Spec Builder's Jira integration dep
 cp .env.example .env              # fill in the keys below
 uvicorn app.main:app --reload --port 8000
 ```
@@ -45,12 +45,28 @@ generate anything.
 
 | Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | Flowchart Builder / Sequence Diagram / Infographic Builder / Story Builder's OpenAI key (required) — Story Builder reuses Infographic Builder's generation pipeline, so it shares this key rather than needing its own |
+| `OPENAI_API_KEY` | OpenAI key used by every tool, including Spec Builder (required unless `LLM_PROVIDER=corporate`) |
 | `OPENAI_MODEL` | Model used for structured generation (default `gpt-4o`) |
+| `LLM_PROVIDER` | `openai` (default) or `corporate` — see [LLM provider](#llm-provider) below; every tool's LLM calls switch together |
+| `CORPORATE_LLM_BASE_URL`, `CORPORATE_LLM_API_KEY`, `CORPORATE_LLM_MODEL` | Your internal LLM gateway's connection details, used only when `LLM_PROVIDER=corporate` |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default covers `localhost`/`127.0.0.1:5173`) |
-| `AIPM_MODEL` | Spec Builder's model, `<provider>:<model>` (default `anthropic:claude-sonnet-5`; use `openai:gpt-5` to run it on OpenAI instead) |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Spec Builder's key, matching whichever provider `AIPM_MODEL` names — independent of the `OPENAI_API_KEY` above even when both happen to point at OpenAI, since they're separate provider configs |
 | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` | Optional — enables Spec Builder's Jira push/import/sync; leave unset to skip |
+
+### LLM provider
+
+Every LLM call in the backend — Flowchart, Sequence, Infographic, Story Builder, and Spec
+Builder alike — goes through a single switchable provider (`backend/app/llm_client.py`)
+rather than each tool talking to a model API directly. `LLM_PROVIDER=openai` (the default)
+uses `OPENAI_API_KEY`/`OPENAI_MODEL` above. `LLM_PROVIDER=corporate` routes every call to
+your own internal LLM gateway instead — but `CorporateLLMProvider` in `llm_client.py` is a
+documented stub, not a working integration, until you fill in your gateway's actual
+request/response shape and auth scheme (its docstring walks through exactly what to
+implement). Until then, leave `LLM_PROVIDER=openai`.
+
+Spec Builder used to run on a separate framework (pydantic-ai, configured via `AIPM_MODEL`)
+pointed at Anthropic by default. That's gone — Spec Builder's 9 agents now go through the
+same `llm_client.py` as every other tool, so the whole backend switches providers together
+with one env var instead of Spec Builder needing its own separate model config.
 
 ## Project layout
 

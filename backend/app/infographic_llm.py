@@ -1,10 +1,9 @@
 import asyncio
 from typing import Awaitable, Callable
 
-from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from app.config import get_settings
+from app.llm_client import generate_structured
 from app.infographic_models import (
     BULLET_MAX_COUNT,
     BULLET_MIN_COUNT,
@@ -113,24 +112,8 @@ class TemplateClassification(BaseModel):
 
 
 async def classify_infographic_template(material: str, prompt: str) -> TemplateClassification:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": CLASSIFY_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=TemplateClassification,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed classification.")
-    return parsed
+    return await generate_structured(CLASSIFY_SYSTEM_PROMPT, user_message, TemplateClassification)
 
 
 WHEEL_SYSTEM_PROMPT = f"""You are an infographic designer. Given source material and a user \
@@ -148,24 +131,8 @@ aren't implied by the material or prompt.
 
 
 async def generate_infographic_wheel(material: str, prompt: str) -> InfographicWheel:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": WHEEL_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicWheel,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed infographic.")
-    return parsed
+    return await generate_structured(WHEEL_SYSTEM_PROMPT, user_message, InfographicWheel)
 
 
 COMPARISON_SYSTEM_PROMPT = f"""You are an infographic designer. Given source material and a user \
@@ -186,24 +153,8 @@ aren't implied by the material or prompt.
 
 
 async def generate_infographic_comparison(material: str, prompt: str) -> InfographicComparison:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": COMPARISON_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicComparison,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed comparison.")
-    return parsed
+    return await generate_structured(COMPARISON_SYSTEM_PROMPT, user_message, InfographicComparison)
 
 
 ROADMAP_SYSTEM_PROMPT = f"""You are a product manager building a public/exec roadmap slide. \
@@ -224,24 +175,8 @@ three horizons, use your best judgment to bucket items by how far out they are.
 
 
 async def generate_infographic_roadmap(material: str, prompt: str) -> InfographicRoadmap:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": ROADMAP_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicRoadmap,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed roadmap.")
-    return parsed
+    return await generate_structured(ROADMAP_SYSTEM_PROMPT, user_message, InfographicRoadmap)
 
 
 PYRAMID_SYSTEM_PROMPT = f"""You are a product strategist building a vision/strategy pyramid \
@@ -262,24 +197,8 @@ pillars that aren't implied by the material or prompt.
 
 
 async def generate_infographic_pyramid(material: str, prompt: str) -> InfographicPyramid:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": PYRAMID_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicPyramid,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed pyramid.")
-    return parsed
+    return await generate_structured(PYRAMID_SYSTEM_PROMPT, user_message, InfographicPyramid)
 
 
 TIMELINE_SYSTEM_PROMPT = f"""You are a product manager building a dated roadmap timeline slide. \
@@ -301,24 +220,8 @@ dates that aren't implied by the material or prompt.
 
 
 async def generate_infographic_timeline(material: str, prompt: str) -> InfographicTimeline:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": TIMELINE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicTimeline,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed timeline.")
-    return parsed
+    return await generate_structured(TIMELINE_SYSTEM_PROMPT, user_message, InfographicTimeline)
 
 
 BULLET_SYSTEM_PROMPT = f"""You are an infographic designer building a plain summary slide -- the \
@@ -335,24 +238,8 @@ aren't implied by the material or prompt.
 
 
 async def generate_infographic_bullets(material: str, prompt: str) -> BulletSummarySlide:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": BULLET_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=BulletSummarySlide,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed summary.")
-    return parsed
+    return await generate_structured(BULLET_SYSTEM_PROMPT, user_message, BulletSummarySlide)
 
 
 MATRIX_SYSTEM_PROMPT = f"""You are a product strategist building a 2x2 analysis matrix slide \
@@ -375,24 +262,8 @@ aren't implied by the material or prompt.
 
 
 async def generate_infographic_matrix(material: str, prompt: str) -> InfographicMatrix:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": MATRIX_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicMatrix,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed matrix.")
-    return parsed
+    return await generate_structured(MATRIX_SYSTEM_PROMPT, user_message, InfographicMatrix)
 
 
 STORY_SYSTEM_PROMPT = """You are a product manager telling the story of a specific feature or \
@@ -418,24 +289,8 @@ outcomes that aren't implied by the material or prompt.
 
 
 async def generate_infographic_story(material: str, prompt: str) -> FeatureStory:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": STORY_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=FeatureStory,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed story.")
-    return parsed
+    return await generate_structured(STORY_SYSTEM_PROMPT, user_message, FeatureStory)
 
 
 HUB_SPOKE_SYSTEM_PROMPT = f"""You are an infographic designer. Given source material and a user \
@@ -456,24 +311,8 @@ aren't implied by the material or prompt.
 
 
 async def generate_infographic_hub_spoke(material: str, prompt: str) -> InfographicHubSpoke:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": HUB_SPOKE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=InfographicHubSpoke,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed hub-and-spoke.")
-    return parsed
+    return await generate_structured(HUB_SPOKE_SYSTEM_PROMPT, user_message, InfographicHubSpoke)
 
 
 TITLE_SYSTEM_PROMPT = f"""You are an infographic designer building the opening cover slide for a \
@@ -494,24 +333,8 @@ or pillar that isn't implied by the material or prompt.
 
 
 async def generate_infographic_title(material: str, prompt: str) -> TitleSlide:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": TITLE_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=TitleSlide,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed title slide.")
-    return parsed
+    return await generate_structured(TITLE_SYSTEM_PROMPT, user_message, TitleSlide)
 
 
 AGENDA_SYSTEM_PROMPT = """You are an infographic designer building a standalone table-of-contents \
@@ -531,24 +354,8 @@ aren't implied by the material or prompt.
 
 
 async def generate_infographic_agenda(material: str, prompt: str) -> AgendaSlide:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": AGENDA_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=AgendaSlide,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed agenda.")
-    return parsed
+    return await generate_structured(AGENDA_SYSTEM_PROMPT, user_message, AgendaSlide)
 
 
 VALUE_PROPOSITION_SYSTEM_PROMPT = f"""You are a product strategist building a Value Proposition \
@@ -575,24 +382,8 @@ describes. Do not invent a job, pain, or gain that isn't implied by the material
 
 
 async def generate_infographic_value_proposition(material: str, prompt: str) -> ValuePropositionSlide:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": VALUE_PROPOSITION_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=ValuePropositionSlide,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed value proposition.")
-    return parsed
+    return await generate_structured(VALUE_PROPOSITION_SYSTEM_PROMPT, user_message, ValuePropositionSlide)
 
 
 POSITIONING_SYSTEM_PROMPT = """You are a product marketer writing the standard Geoffrey Moore \
@@ -622,24 +413,8 @@ isn't implied by the material or prompt.
 
 
 async def generate_infographic_positioning(material: str, prompt: str) -> PositioningStatementSlide:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": POSITIONING_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=PositioningStatementSlide,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed positioning statement.")
-    return parsed
+    return await generate_structured(POSITIONING_SYSTEM_PROMPT, user_message, PositioningStatementSlide)
 
 
 RACI_SYSTEM_PROMPT = f"""You are a PM documenting decision rights for an initiative as a RACI \
@@ -663,24 +438,8 @@ ownership that aren't implied by the material or prompt.
 
 
 async def generate_infographic_raci(material: str, prompt: str) -> RaciChartSlide:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source material:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": RACI_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=RaciChartSlide,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed RACI chart.")
-    return parsed
+    return await generate_structured(RACI_SYSTEM_PROMPT, user_message, RaciChartSlide)
 
 
 async def generate_infographic(
@@ -752,23 +511,8 @@ this range, not counted within it).
 
 
 async def plan_deck(material: str, prompt: str) -> DeckPlan:
-    settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
-
     user_message = f"Source document:\n{material}\n\nInstructions:\n{prompt}"
-
-    completion = await client.beta.chat.completions.parse(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": PLAN_SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-        response_format=DeckPlan,
-    )
-
-    parsed = completion.choices[0].message.parsed
-    if parsed is None:
-        raise ValueError("OpenAI response did not include a parsed deck plan.")
+    parsed = await generate_structured(PLAN_SYSTEM_PROMPT, user_message, DeckPlan)
 
     # Every generated deck opens with a cover slide and an agenda, added
     # here in code rather than left to the planner LLM -- guarantees they're
