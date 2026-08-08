@@ -13,6 +13,12 @@ class ProjectMeta(BaseModel):
     name: str
     created_at: str
     updated_at: str
+    # When the project's input (raw notes) and its most recently generated
+    # spec last changed -- None until each has happened at least once. The UI
+    # compares these to show "input changed since this spec was generated"
+    # without needing full version history on the input side.
+    input_updated_at: str | None = None
+    last_generated_at: str | None = None
 
 class Stakeholder(BaseModel):
     id: str = Field(description="e.g. 'SH-1', assigned in Python")
@@ -28,12 +34,34 @@ class GlossaryTerm(BaseModel):
     term: str
     definition: str
 
+class SpecInput(BaseModel):
+    """The editable source that drives generation, kept separate from the
+    generated spec (GeneratedPRD) so a PM can revise the input and ask the
+    agents to redraft, instead of the input being a write-once artifact.
+    `clarifications` is untyped dicts (not AnsweredClarification) to avoid a
+    circular import with agents.py, which itself imports from this module --
+    callers that need typed access go through the AnsweredClarification
+    model themselves, same as PendingClarification.extracted/history below.
+    It's append-only across regenerations: kept as reference context (shown
+    to the PM, passed to the Clarify Agent, which already skips repeating
+    answered questions) rather than assumed still valid."""
+    raw_notes: str = ""
+    clarifications: list[dict] = Field(default_factory=list)
+    updated_at: str = ""
+
 class PendingClarification(NamedTuple):
     raw_notes: str
     extracted: object  # ExtractedRequirements
     questions: list    # list[ClarifyQuestion] -- current round, unanswered
     history: list       # list[AnsweredClarification] -- prior rounds, answered
     round: int
+    # Which artifact a completed clarification round should save into, and
+    # why -- None/"generated" for a brand-new project (first-ever artifact),
+    # or an existing artifact_id/"regenerated from updated input" so a
+    # regenerate-triggered clarification round lands as a new VERSION of the
+    # existing spec rather than an unrelated second one.
+    target_artifact_id: str | None
+    reason: str
 
 def _project_dir(project_id: str) -> Path:
     return DATA_ROOT / project_id
@@ -179,8 +207,51 @@ def save_raw_input(project_id: str, text: str) -> str:
     path.write_text(text)
     return input_id
 
+def _input_path(project_id: str) -> Path:
+    return _project_dir(project_id) / "input.json"
+
+def load_input(project_id: str) -> SpecInput:
+    path = _input_path(project_id)
+    if not path.exists():
+        return SpecInput()
+    return SpecInput.model_validate_json(path.read_text())
+
+def save_input_notes(project_id: str, raw_notes: str) -> SpecInput:
+    """Updates just raw_notes -- the only field a PM edits directly;
+    clarifications accumulate only through append_input_clarifications."""
+    current = load_input(project_id)
+    current.raw_notes = raw_notes
+    now = datetime.now(timezone.utc).isoformat()
+    current.updated_at = now
+    _input_path(project_id).write_text(current.model_dump_json(indent=2))
+
+    meta = get_project(project_id)
+    meta.input_updated_at = now
+    meta.updated_at = now
+    (_project_dir(project_id) / "meta.json").write_text(meta.model_dump_json(indent=2))
+
+    return current
+
+def append_input_clarifications(project_id: str, answered) -> None:
+    """answered: list[AnsweredClarification]. Called once per completed
+    clarification round (from /clarify), whether or not that round is the
+    last one -- so the Q&A history is never lost, unlike
+    pending_clarification.json which gets cleared once generation
+    succeeds."""
+    current = load_input(project_id)
+    current.clarifications += [a.model_dump() for a in answered]
+    _input_path(project_id).write_text(current.model_dump_json(indent=2))
+
+def mark_generated(project_id: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    meta = get_project(project_id)
+    meta.last_generated_at = now
+    meta.updated_at = now
+    (_project_dir(project_id) / "meta.json").write_text(meta.model_dump_json(indent=2))
+
 def save_pending_clarification(
-    project_id: str, raw_notes: str, extracted, questions, history, round_num: int
+    project_id: str, raw_notes: str, extracted, questions, history, round_num: int,
+    target_artifact_id: str | None = None, reason: str = "generated",
 ) -> None:
     data = {
         "raw_notes": raw_notes,
@@ -188,6 +259,8 @@ def save_pending_clarification(
         "questions": [q.model_dump() for q in questions],
         "history": [h.model_dump() for h in history],
         "round": round_num,
+        "target_artifact_id": target_artifact_id,
+        "reason": reason,
     }
     path = _project_dir(project_id) / "pending_clarification.json"
     path.write_text(json.dumps(data, indent=2))
@@ -208,6 +281,8 @@ def load_pending_clarification(project_id: str) -> PendingClarification | None:
         questions=questions,
         history=history,
         round=data.get("round", 1),
+        target_artifact_id=data.get("target_artifact_id"),
+        reason=data.get("reason", "generated"),
     )
 
 def clear_pending_clarification(project_id: str) -> None:

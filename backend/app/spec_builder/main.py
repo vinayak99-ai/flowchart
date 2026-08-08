@@ -26,7 +26,8 @@ from .persistence import (
     save_raw_input, save_pending_clarification, load_pending_clarification,
     clear_pending_clarification, load_stakeholders, save_stakeholders,
     load_glossary, save_glossary,
-    ProjectMeta, Stakeholder, GlossaryTerm
+    load_input, save_input_notes, append_input_clarifications, mark_generated,
+    ProjectMeta, Stakeholder, GlossaryTerm, SpecInput
 )
 from .agents import (
     agent, generation_agent, run_clarify, run_generation, run_diagram,
@@ -70,6 +71,9 @@ class RenameProjectRequest(BaseModel):
     name: str
 
 class GenerateRequest(BaseModel):
+    raw_notes: str
+
+class InputRequest(BaseModel):
     raw_notes: str
 
 class ClarifyAnswersRequest(BaseModel):
@@ -248,14 +252,18 @@ def api_save_glossary(project_id: str, req: GlossaryRequest):
     save_glossary(project_id, req.terms)
     return {"terms": req.terms}
 
-@app.post("/projects/{project_id}/generate", response_model=GenerateResponse)
-def api_generate(project_id: str, req: GenerateRequest):
-    save_raw_input(project_id, req.raw_notes)
-
+def _start_generation(
+    project_id: str, raw_notes: str, target_artifact_id: str | None, reason: str
+) -> GenerateResponse:
+    """Runs extraction -> clarify -> (full generate once clarified). Shared
+    by /generate (fresh raw_notes, no target artifact -- a brand-new one
+    gets created) and /regenerate (raw_notes read from the project's
+    persisted input, target_artifact_id set so the result becomes a new
+    VERSION of the existing artifact rather than an unrelated second one)."""
     try:
         _set_stage(project_id, "extracting")
         try:
-            extraction_result = agent.run_sync(req.raw_notes)
+            extraction_result = agent.run_sync(raw_notes)
             extracted = extraction_result.output
             _set_stage(project_id, "clarifying")
             clarify_result = run_clarify(extracted)
@@ -264,7 +272,9 @@ def api_generate(project_id: str, req: GenerateRequest):
 
         round_questions = clarify_result.questions[:ROUND_SIZE]
         if round_questions:
-            save_pending_clarification(project_id, req.raw_notes, extracted, round_questions, [], 1)
+            save_pending_clarification(
+                project_id, raw_notes, extracted, round_questions, [], 1, target_artifact_id, reason
+            )
             return GenerateResponse(status="needs_clarification", questions=round_questions)
 
         try:
@@ -275,10 +285,46 @@ def api_generate(project_id: str, req: GenerateRequest):
         except AgentRunError as e:
             raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
-        artifact_id = save_artifact(project_id, prd, reason="generated")
+        artifact_id = save_artifact(project_id, prd, target_artifact_id, reason=reason)
+        mark_generated(project_id)
         return GenerateResponse(status="generated", artifact_id=artifact_id, prd=prd)
     finally:
         _generation_progress.pop(project_id, None)
+
+@app.post("/projects/{project_id}/generate", response_model=GenerateResponse)
+def api_generate(project_id: str, req: GenerateRequest):
+    save_raw_input(project_id, req.raw_notes)
+    save_input_notes(project_id, req.raw_notes)
+    return _start_generation(project_id, req.raw_notes, target_artifact_id=None, reason="generated")
+
+@app.get("/projects/{project_id}/input", response_model=SpecInput)
+def api_get_input(project_id: str):
+    return load_input(project_id)
+
+@app.put("/projects/{project_id}/input", response_model=SpecInput)
+def api_save_input(project_id: str, req: InputRequest):
+    return save_input_notes(project_id, req.raw_notes)
+
+@app.post("/projects/{project_id}/regenerate", response_model=GenerateResponse)
+def api_regenerate(project_id: str):
+    """Reruns the full pipeline from the project's persisted, PM-editable
+    input -- the counterpart to /generate's fresh raw_notes. Always targets
+    the project's existing artifact (one artifact per project, matching how
+    the UI already works) so the result lands as a new version, never a
+    second unrelated spec."""
+    spec_input = load_input(project_id)
+    if not spec_input.raw_notes.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="No input notes saved for this project yet -- add some in Source Notes first.",
+        )
+
+    artifact_ids = list_artifacts(project_id)
+    target_artifact_id = artifact_ids[0] if artifact_ids else None
+
+    return _start_generation(
+        project_id, spec_input.raw_notes, target_artifact_id, reason="regenerated from updated input"
+    )
 
 @app.get("/projects/{project_id}/generation-status")
 def api_generation_status(project_id: str):
@@ -306,6 +352,11 @@ def api_clarify(project_id: str, req: ClarifyAnswersRequest):
         )
         for q in pending.questions
     ]
+    # Persisted immediately, independent of whether this round turns out to
+    # be the last one -- unlike pending_clarification.json (cleared once
+    # generation succeeds), the input's clarification history is never
+    # cleared, so it survives as reference context for future regenerations.
+    append_input_clarifications(project_id, answered_now)
     new_history = pending.history + answered_now
 
     try:
@@ -321,7 +372,8 @@ def api_clarify(project_id: str, req: ClarifyAnswersRequest):
 
         if next_questions:
             save_pending_clarification(
-                project_id, pending.raw_notes, pending.extracted, next_questions, new_history, pending.round + 1
+                project_id, pending.raw_notes, pending.extracted, next_questions, new_history,
+                pending.round + 1, pending.target_artifact_id, pending.reason,
             )
             return GenerateResponse(status="needs_clarification", questions=next_questions)
 
@@ -333,7 +385,8 @@ def api_clarify(project_id: str, req: ClarifyAnswersRequest):
         except AgentRunError as e:
             raise HTTPException(status_code=502, detail=_agent_error_detail(e))
 
-        artifact_id = save_artifact(project_id, prd, reason="generated")
+        artifact_id = save_artifact(project_id, prd, pending.target_artifact_id, reason=pending.reason)
+        mark_generated(project_id)
         clear_pending_clarification(project_id)
         return GenerateResponse(status="generated", artifact_id=artifact_id, prd=prd)
     finally:

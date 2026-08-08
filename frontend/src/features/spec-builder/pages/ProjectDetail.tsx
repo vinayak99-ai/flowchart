@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SourceNotesSection } from "@/features/spec-builder/components/SourceNotesSection"
 import { EditableList } from "@/features/spec-builder/components/EditableList"
 import { IdentifiedList } from "@/features/spec-builder/components/IdentifiedList"
 import { KeyEntityList } from "@/features/spec-builder/components/KeyEntityList"
@@ -67,6 +68,7 @@ const emptyStory: UserStory = {
 // shared language, projections, "what changed" updates) lives on Comms.
 const SPEC_OUTLINE: OutlineSection[] = [
   { id: "overview", label: "Overview", icon: AlignLeft },
+  { id: "source-notes", label: "Source Notes", icon: FileText },
   { id: "stories", label: "User Stories", icon: BookOpen },
   { id: "edge-cases", label: "Edge Cases", icon: AlertTriangle },
   { id: "functional-requirements", label: "Requirements", icon: ListChecks },
@@ -116,6 +118,26 @@ export function ProjectDetail({
   const [tab, setTab] = useState<DetailTab>("spec")
   // "Something needs an eye here" markers for the outline rail / tab labels.
   const [updatesAttention, setUpdatesAttention] = useState(false)
+
+  // Drives the Source Notes section's "input changed since generation"
+  // badge. Refetched after a regenerate (see handleRegenerated below) so the
+  // badge clears immediately rather than waiting for a full remount.
+  const [inputUpdatedAt, setInputUpdatedAt] = useState<string | null>(null)
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(null)
+
+  const refreshMetaTimestamps = useCallback(() => {
+    api
+      .getProject(projectId)
+      .then((meta) => {
+        setInputUpdatedAt(meta.input_updated_at)
+        setLastGeneratedAt(meta.last_generated_at)
+      })
+      .catch(() => {})
+  }, [projectId])
+
+  useEffect(() => {
+    refreshMetaTimestamps()
+  }, [refreshMetaTimestamps])
 
   useEffect(() => {
     if (initialPrd) return
@@ -178,6 +200,24 @@ export function ProjectDetail({
   )
 
   const handleSave = useCallback(() => doSave("manual save"), [doSave])
+
+  function handleRegenerated(newArtifactId: string, newPrd: GeneratedPRD) {
+    // The one place that replaces `prd` wholesale -- every other
+    // regenerate-style action here (Architecture/Epics/Diagrams/Briefs/
+    // Updates) merges exactly one field back via onChange/update(). A full
+    // spec regeneration from updated input is a different kind of action:
+    // stories, requirements, entities, criteria, ADRs, and epics all derive
+    // from the same extraction+generation pass, so there's no single field
+    // to merge -- the whole document is new. The prior version isn't lost;
+    // it's preserved in this artifact's version history.
+    setArtifactId(newArtifactId)
+    setPrd(newPrd)
+    setDirty(false)
+    setAutosavePaused(false)
+    setLastSavedAt(new Date())
+    refreshMetaTimestamps()
+    toast({ title: "Spec regenerated", description: "Redrafted from the updated source notes." })
+  }
 
   // Debounced autosave: 2s after the last edit. The server dedupes
   // identical content, so this never spams the version history.
@@ -435,6 +475,15 @@ export function ProjectDetail({
                 </div>
               )}
             </div>
+
+            <SourceNotesSection
+              projectId={projectId}
+              projectName={projectName}
+              inputUpdatedAt={inputUpdatedAt}
+              lastGeneratedAt={lastGeneratedAt}
+              onNeedsClarification={onNeedsClarification ?? (() => {})}
+              onRegenerated={handleRegenerated}
+            />
 
             <Section
               id="stories"

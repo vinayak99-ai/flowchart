@@ -13,6 +13,11 @@ export interface ProjectMeta {
   name: string
   created_at: string
   updated_at: string
+  // Null until each has happened at least once. Compare the two to show
+  // "input changed since this spec was generated" without full input
+  // version history.
+  input_updated_at: string | null
+  last_generated_at: string | null
   // Present on list responses; absent on create/rename responses.
   summary?: ProjectSummary
 }
@@ -121,6 +126,12 @@ export interface ClarifyQuestion {
 export interface AnsweredClarification {
   question: ClarifyQuestion
   answer: string
+}
+
+export interface SpecInput {
+  raw_notes: string
+  clarifications: AnsweredClarification[]
+  updated_at: string
 }
 
 export interface GenerateResponse {

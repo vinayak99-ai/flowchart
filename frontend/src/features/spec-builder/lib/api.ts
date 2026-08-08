@@ -13,6 +13,7 @@ import type {
   JiraStatus,
   JiraSyncResponse,
   ProjectMeta,
+  SpecInput,
   Stakeholder,
   UpdateAudience,
 } from "./types"
@@ -79,6 +80,24 @@ export const api = {
       `/projects/${projectId}/artifacts/${artifactId}/regenerate-section`,
       { method: "POST", body: JSON.stringify({ section, context }) }
     ),
+
+  getInput: (projectId: string) => request<SpecInput>(`/projects/${projectId}/input`),
+
+  saveInput: (projectId: string, rawNotes: string) =>
+    request<SpecInput>(`/projects/${projectId}/input`, {
+      method: "PUT",
+      body: JSON.stringify({ raw_notes: rawNotes }),
+    }),
+
+  // Full-pipeline rerun from the project's persisted input (see getInput/
+  // saveInput above) -- unlike every other regenerate* method here, which
+  // returns one field of a GeneratedPRD to merge, this one is a genuine
+  // regenerate-the-whole-spec action: the caller should replace its entire
+  // local `prd` state with the response's `prd`, same as after `generate`.
+  regenerateSpec: (projectId: string) =>
+    request<GenerateResponse>(`/projects/${projectId}/regenerate`, {
+      method: "POST",
+    }),
 
   listArtifacts: (projectId: string) =>
     request<{ artifact_ids: string[] }>(`/projects/${projectId}/artifacts`),
